@@ -1,0 +1,42 @@
+# Session Summary: Project Tracker Pro - March 12, 2026
+
+## 🚀 Key Achievements
+
+### 1. Database & Persistence (Local-First)
+*   **Architecture:** Re-architected `src/services/db.ts` to use a standard SQLite WASM engine.
+*   **Reliability:** Implemented **Binary Persistence**. The entire SQLite database is exported as a binary blob and saved to IndexedDB. This fixed the "data loss on reload" issue caused by Foreign Key constraint violations during manual table syncing.
+*   **Auto-Save:** Integrated `beforeunload` listeners and periodic syncing to ensure data persists.
+*   **Method Restoration:** Fully implemented all CRUD methods: `getSubtasks`, `addSubtask`, `deleteSubtask`, `updateSubtask`, `getComments`, `addComment`, `getActivities`, `startTaskTimer`, `stopTaskTimer`.
+
+### 2. Task Management Enhancements
+*   **Multi-Assignee Support:** Tasks now support an array of `assigneeIds` stored as a comma-separated string in SQLite.
+*   **Progress Logic:** Linked Task Progress to Subtasks. If subtasks exist, the progress slider is disabled and automatically calculates completion based on subtask status.
+*   **Creation Workflow:** New tasks now default to the logged-in user as the primary assignee.
+
+### 3. UI/UX Refinements (Mobile-First)
+*   **Task Detail Modal:**
+    *   Modernized the Assignee management UI with pill-shaped toggles and a dedicated "Add Assignee" modal.
+    *   Implemented a separate modal for adding Subtasks and Comments to reduce clutter.
+    *   Added a scrollable container for subtasks/comments designed to show 3 items at a time.
+    *   Changed progress bar fill color to **Emerald Green**.
+*   **Kanban Board:**
+    *   Removed the redundant "Backlog" column (leaving To Do, In Progress, Review, Done).
+    *   Added "My Tasks" and "Team Tasks" filters.
+    *   **Fixed Drag & Drop:** Configured distance-based activation sensors (5px) to decouple clicking (to open settings) from dragging.
+*   **Navigation:**
+    *   Fixed `BottomNav` to show all 4 main tabs + the central Plus button.
+    *   Resolved `slugify` and `X` icon reference errors.
+
+### 4. Infrastructure & Testing
+*   **Vite Config:** Fixed alias collisions by properly mapping `react` and `preact/compat`. Removed strict COOP/COEP headers that were blocking external image assets.
+*   **Seed Logic:** Separated seeding into `src/services/seeder.ts` and `src/services/seedData.ts`. The app now auto-seeds on first launch if the DB is empty.
+*   **User Context:** Ensured `myUserId` is initialized in `localStorage` as 'me' to provide a consistent "Logged In" experience for the local user.
+
+## 🛠 Tech Stack Status
+*   **Preact + Vite** (Fixed alias issues)
+*   **SQLite WASM** (Binary Persistence mode active)
+*   **Lucide Icons**
+*   **Dnd-kit** (Optimized for whole-card drag/click)
+
+## 📝 Note for Next Session
+The app is currently stable with persistent data. The next phase involves exploring "Zync" services, encrypted cloud backups, and local LLM integration for the "AI Planning Coach."

@@ -1,9 +1,16 @@
 import { useState, useEffect } from 'preact/hooks';
 import { Link, route } from 'preact-router';
 import { Icon } from './Icon';
-import { LayoutDashboard, ListTodo, Calendar, Settings, Plus, Search, Bell, Sun, Moon, Rocket, BarChart3, Users, HelpCircle, ChevronRight, LogOut, ChevronLeft, Trash2, MoreVertical, Layers, Inbox } from 'lucide-preact';
+import { 
+  LayoutDashboard, ListTodo, Calendar, Settings, Plus, Search, 
+  Bell, Sun, Moon, Rocket, BarChart3, Users, HelpCircle, 
+  ChevronRight, LogOut, ChevronLeft, Trash2, MoreVertical, 
+  Layers, Inbox, X 
+} from 'lucide-preact';
 import { Avatar } from './Avatar';
 import { Project, User } from '../services/db';
+
+const slugify = (name: string) => name.toLowerCase().replace(/\s+/g, '_');
 
 interface SidebarProps {
   onCreateProject?: () => void;
@@ -25,32 +32,11 @@ export const Sidebar = ({
   isCollapsed,
   onToggleCollapse,
   currentUser
-}: SidebarProps) => {
+  }: SidebarProps) => {
   const [isProjectDropdownOpen, setIsProjectDropdownOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState('dashboard');
-
-  useEffect(() => {
-    const updateActiveTab = () => {
-      const path = window.location.pathname;
-      const match = path.match(/\/project\/[^/]+\/([^/]+)/);
-      if (match) {
-        setActiveTab(match[1]);
-      } else if (path === '/' || path === '') {
-        setActiveTab('dashboard');
-      }
-    };
-
-    updateActiveTab();
-    
-    window.addEventListener('popstate', updateActiveTab);
-    // Listen for custom navigation events if any, or just check periodically as a fallback for preact-router
-    const interval = setInterval(updateActiveTab, 500);
-    
-    return () => {
-      window.removeEventListener('popstate', updateActiveTab);
-      clearInterval(interval);
-    };
-  }, []);
+  const path = window.location.pathname;
+  const match = path.match(/\/project\/[^/]+\/([^/]+)/);
+  const activeTab = match ? match[1] : (path === '/' ? 'dashboard' : '');
 
   const slugify = (name: string) => name.toLowerCase().replace(/\s+/g, '_');
 
@@ -264,7 +250,7 @@ export const Navbar = ({
           <div className="h-8 w-px bg-app-border hidden md:block mx-2"></div>
           
           <Link 
-            href={currentProject ? `/project/${currentProject.id}/profile` : '#'}
+            href={currentProject ? `/project/${slugify(currentProject.name)}/profile` : '#'}
             className="flex items-center gap-3 pl-2 hover:bg-primary/5 p-1 rounded-xl transition-all"
             {...({} as any)}
           >
@@ -284,33 +270,11 @@ export const Navbar = ({
 };
 
 export const BottomNav = ({ onCreateProject, currentProject }: { onCreateProject?: () => void, currentProject: Project | null }) => {
-  const [activeTab, setActiveTab] = useState('dashboard');
-
-  useEffect(() => {
-    const updateActiveTab = () => {
-      const path = window.location.pathname;
-      const match = path.match(/\/project\/[^/]+\/([^/]+)/);
-      if (match) {
-        setActiveTab(match[1]);
-      } else if (path === '/' || path === '') {
-        setActiveTab('dashboard');
-      }
-    };
-
-    updateActiveTab();
-    
-    window.addEventListener('popstate', updateActiveTab);
-    // Listen for custom navigation events if any, or just check periodically as a fallback for preact-router
-    const interval = setInterval(updateActiveTab, 500);
-    
-    return () => {
-      window.removeEventListener('popstate', updateActiveTab);
-      clearInterval(interval);
-    };
-  }, []);
+  const path = window.location.pathname;
+  const match = path.match(/\/project\/[^/]+\/([^/]+)/);
+  const activeTab = match ? match[1] : (path === '/' ? 'dashboard' : '');
 
   const slugify = (name: string) => name.toLowerCase().replace(/\s+/g, '_');
-
   const tabs = [
     { id: 'dashboard', label: 'Board', icon: LayoutDashboard },
     { id: 'board', label: 'Tasks', icon: ListTodo },
@@ -322,9 +286,9 @@ export const BottomNav = ({ onCreateProject, currentProject }: { onCreateProject
     <nav className="bg-app-background border-t border-app-border px-6 py-2 pb-6 flex items-center justify-between sticky bottom-0 z-20">
       {tabs.slice(0, 2).map(tab => (
         <Link 
-          key={tab.id}
-          href={currentProject ? `/project/${slugify(currentProject.name)}/${tab.id}` : '#'}
-          className={`flex flex-col items-center gap-1 transition-colors ${activeTab === tab.id ? 'text-primary' : 'text-app-text-secondary'}`}
+          key={tab.id} 
+          href={currentProject ? `/project/${slugify(currentProject.name)}/${tab.id}` : '#'} 
+          className={`flex flex-col items-center gap-1 transition-colors ${activeTab === tab.id ? 'text-primary' : 'text-app-text-secondary'}`} 
           {...({} as any)}
         >
           <Icon icon={tab.icon} size={24} />
@@ -333,19 +297,16 @@ export const BottomNav = ({ onCreateProject, currentProject }: { onCreateProject
       ))}
       
       <div className="relative -top-6">
-        <button 
-          onClick={onCreateProject}
-          className="size-14 bg-primary rounded-full shadow-lg shadow-primary/40 flex items-center justify-center text-white border-4 border-app-background"
-        >
+        <button onClick={onCreateProject} className="size-14 bg-primary rounded-full shadow-lg shadow-primary/40 flex items-center justify-center text-white border-4 border-app-background">
           <Icon icon={Plus} size={32} />
         </button>
       </div>
 
       {tabs.slice(2).map(tab => (
         <Link 
-          key={tab.id}
-          href={currentProject ? `/project/${slugify(currentProject.name)}/${tab.id}` : '#'}
-          className={`flex flex-col items-center gap-1 transition-colors ${activeTab === tab.id ? 'text-primary' : 'text-app-text-secondary'}`}
+          key={tab.id} 
+          href={currentProject ? `/project/${slugify(currentProject.name)}/${tab.id}` : '#'} 
+          className={`flex flex-col items-center gap-1 transition-colors ${activeTab === tab.id ? 'text-primary' : 'text-app-text-secondary'}`} 
           {...({} as any)}
         >
           <Icon icon={tab.icon} size={24} />

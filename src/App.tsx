@@ -52,6 +52,12 @@ export default function App() {
     const users = await db.getUsers();
     let myId = localStorage.getItem('myUserId');
     let me = users.find(u => u.id === myId);
+    
+    if (!me && myId === 'me') {
+      me = users.find(u => u.initials === 'ME');
+      if (me) localStorage.setItem('myUserId', me.id);
+    }
+
     if (!me && users.length > 0) {
       me = users[0];
       localStorage.setItem('myUserId', me.id);
@@ -74,6 +80,11 @@ export default function App() {
           const project = await db.getProjectByName(projectMatch[1]);
           if (project) {
             setCurrentProjectId(project.id);
+          } else {
+            // Try by ID if name fails
+            const allProj = await db.getProjects();
+            const byId = allProj.find(p => p.id === projectMatch[1]);
+            if (byId) setCurrentProjectId(byId.id);
           }
         } else if (projectsData.length > 0) {
           setCurrentProjectId(projectsData[0].id);
@@ -114,14 +125,17 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem('isLoggedIn', isLoggedIn.toString());
     if (isLoggedIn && projects.length > 0 && (window.location.pathname === '/' || window.location.pathname === '')) {
-      const lastProjectId = currentProjectId || projects[0].id;
-      route(`/project/${lastProjectId}/dashboard`);
+      const proj = projects.find(p => p.id === currentProjectId) || projects[0];
+      route(`/project/${slugify(proj.name)}/dashboard`);
     }
-  }, [isLoggedIn, projects]);
+  }, [isLoggedIn, projects, currentProjectId]);
 
   useEffect(() => {
-    localStorage.setItem('hasSeenLanding', (!showLanding).toString());
-  }, [showLanding]);
+    if (isDbReady && isLoggedIn && !currentProjectId && projects.length > 0) {
+      setCurrentProjectId(projects[0].id);
+      route(`/project/${slugify(projects[0].name)}/dashboard`);
+    }
+  }, [isDbReady, isLoggedIn, currentProjectId, projects]);
 
   useEffect(() => {
     if (isDark) {
@@ -137,7 +151,7 @@ export default function App() {
 
   const slugify = (name: string) => name.toLowerCase().replace(/\s+/g, '_');
 
-  const handleCreateProject = async (data: { name: string; description: string; color: string }) => {
+  const handleCreateProject = async (data: { name: string; description: string; color: string; startDate: string; endDate: string }) => {
     const id = await db.addProject(data);
     await refreshProjects();
     setCurrentProjectId(id);
@@ -237,7 +251,10 @@ export default function App() {
         </main>
  
         <div className="lg:hidden fixed bottom-0 left-0 right-0 z-50">
-          <BottomNav onCreateProject={() => setIsProjectModalOpen(true)} currentProject={currentProject} />
+          <BottomNav 
+            onCreateProject={() => setIsProjectModalOpen(true)} 
+            currentProject={currentProject}
+          />
         </div>
       </div>
 

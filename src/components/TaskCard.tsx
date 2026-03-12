@@ -148,8 +148,8 @@ export const TaskCard = ({
         
         {progress !== undefined && (
           <div className="space-y-2">
-            <div className="w-full bg-slate-100 dark:bg-slate-800 h-1.5 rounded-full">
-              <div className="bg-primary h-full rounded-full transition-all" style={{ width: `${progress}%` }}></div>
+            <div className="w-full bg-slate-100 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden">
+              <div className="bg-emerald-500 h-full transition-all duration-500 ease-out" style={{ width: `${progress}%` }}></div>
             </div>
             <div className="flex justify-between items-center">
               <div className="flex -space-x-2">

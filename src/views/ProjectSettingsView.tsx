@@ -16,6 +16,7 @@ export const ProjectSettingsView = ({ currentProject, onUpdate, onDelete }: Proj
   const [description, setDescription] = useState(currentProject?.description || '');
   const [color, setColor] = useState(currentProject?.color || '#3b82f6');
   const [startDate, setStartDate] = useState(currentProject?.startDate || new Date().toISOString().split('T')[0]);
+  const [endDate, setEndDate] = useState(currentProject?.endDate || '');
   const [sprintStartDay, setSprintStartDay] = useState(currentProject?.sprintStartDay || 1);
   const [sprintDurationWeeks, setSprintDurationWeeks] = useState(currentProject?.sprintDurationWeeks || 2);
   
@@ -44,6 +45,7 @@ export const ProjectSettingsView = ({ currentProject, onUpdate, onDelete }: Proj
       setDescription(currentProject.description || '');
       setColor(currentProject.color || '#3b82f6');
       setStartDate(currentProject.startDate || currentProject.createdAt.split(' ')[0]);
+      setEndDate(currentProject.endDate || '');
       setSprintStartDay(currentProject.sprintStartDay || 1);
       setSprintDurationWeeks(currentProject.sprintDurationWeeks || 2);
       fetchTeam();
@@ -59,6 +61,7 @@ export const ProjectSettingsView = ({ currentProject, onUpdate, onDelete }: Proj
       description,
       color,
       startDate,
+      endDate,
       sprintStartDay,
       sprintDurationWeeks
     });
