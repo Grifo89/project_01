@@ -1,0 +1,13 @@
+services:
+  dev:
+    build: .
+    ports:
+      - "3000:3000"
+    volumes:
+      # Mount the current directory to track changes for live reload
+      - .:/app
+      # Volume for node_modules to avoid reinstalling on every change
+      - /app/node_modules
+    environment:
+      - NODE_ENV=development
+    # Watch mode is handled by Vite automatically
