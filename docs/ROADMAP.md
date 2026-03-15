@@ -87,7 +87,7 @@ Before reading the task list, understand the architectural decision that shapes 
     joinedAt: string;
   }
   ```
-- [ ] Delete the `User` interface export from `db.ts`
+- [x] Delete the `User` interface export from `db.ts`
 - [ ] Remove `users` and `project_users` from the `persist()` table list in `db.ts`
 - [ ] Remove `users` and `project_users` from the IndexedDB restore loop in `db.init()`
 - [ ] Add `project_members` to the `persist()` table list in `db.ts`

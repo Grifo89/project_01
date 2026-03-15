@@ -7,7 +7,7 @@ export interface Project { id: string; name: string; description?: string; color
 export interface Column { id: string; projectId: string; name: string; orderIndex: number; isDeletable?: boolean; }
 export type Priority = 'high' | 'medium' | 'low';
 export interface Task { id: string; columnId: string; projectId: string; sprintId?: string; assigneeIds?: string[]; title: string; description?: string; tag?: string; tagVariant?: string; priority: Priority; progress: number; dueDate?: string; completed: boolean; isArchived: boolean; orderIndex: number; timeSpent?: number; isTimerRunning?: boolean; timerStartedAt?: string; createdAt: string; }
-export interface User { id: string; name: string; email?: string; role?: string; avatarColor: string; initials: string; avatarUrl?: string; }
+
 export interface Activity { id: string; projectId: string; taskId?: string; userId?: string; type: string; content: string; createdAt: string; }
 export interface ProjectMember {
   id: string;
