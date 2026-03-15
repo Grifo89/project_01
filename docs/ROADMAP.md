@@ -5,40 +5,6 @@
 
 ---
 
-## Decision Record: Global Users → Project-Scoped Members
-
-Before reading the task list, understand the architectural decision that shapes Phase 0 and Phase 1.
-
-**What is wrong today:** The `users` table is a global registry. Users exist independently of any project, their identities are fabricated at seed time with no connection to any real authentication system. The `project_users` join table maps these fake IDs to projects. The current `db.getProjectTeam()` method already proves the concept of project-scoped membership is correct — the implementation is just built on the wrong foundation.
-
-**The correct model:**
-
-- A person's **identity** comes from the authentication provider (Firebase UID). The app never invents its own user IDs.
-- A person's **presence on a project** is recorded in a `project_members` table: `(projectId, authUid, displayName, photoUrl, role)`. Populated at sign-in time. Scoped entirely to a project.
-- There is **no global `users` table**. A member only exists in the context of a specific project they belong to.
-
-**What gets removed vs what stays:**
-
-| Thing | Decision | Reason |
-|---|---|---|
-| `users` table | ❌ Deleted | Global registry replaced by auth provider identity |
-| `project_users` join table | ❌ Deleted | Replaced by `project_members` with real auth UIDs |
-| `User` interface | ❌ Deleted | Replaced by `AuthUser` (auth layer) + `ProjectMember` (db layer) |
-| `addUser`, `updateUser`, `deleteUser`, `getUsers` | ❌ Deleted | Identity is managed by the auth provider, not the app |
-| `getProjectTeam()` | ❌ Deleted | Replaced by `getProjectMembers()` querying `project_members` |
-| `addUserToProject()`, `removeUserFromProject()` | ❌ Deleted | Replaced by `addProjectMember()` / `removeProjectMember()` |
-| `ProfileSettingsView` | ❌ Deleted | Replaced in Phase 1 by auth-aware `ProfileView` |
-| `localStorage.getItem('myUserId')` | ❌ Deleted | Replaced by `useAuth().user.uid` |
-| `project_members` table | ✅ Created in Phase 0 | The correct project-scoped membership model |
-| `TeamView` | ✅ Stubbed in Phase 0, rebuilt in Phase 1 | Concept is correct — implementation gets real data |
-| `assigneeIds` on `Task` | ✅ Stays — no schema change | Will store Firebase UIDs instead of fake IDs |
-| `Avatar` component | ✅ Updated in Phase 0 | Accepts `displayName`/`photoUrl` — no longer tied to `User` |
-| Assignee UI in `TaskForm`, `TaskDetailModal`, `TaskCard` | ✅ Simplified in Phase 0, restored in Phase 1 | Works against `project_members` once auth is wired |
-
-**Why this is safe to do in Phase 0 before auth exists:** `project_members` starts as an empty table. `db.getProjectMembers()` returns an empty array. Nothing crashes — assignee pickers render with an empty state. Phase 1 populates the table at sign-in time.
-
----
-
 ## Legend
 
 | Badge | Meaning |
@@ -52,645 +18,364 @@ Before reading the task list, understand the architectural decision that shapes 
 ---
 
 ## Phase 0 — Stop the Bleeding
-> **Goal:** Replace the global `User` entity with the project-scoped `project_members` model, implement all missing db methods, and eliminate every runtime crash. Every existing view must render without errors before Phase 1 begins.  
+> **Goal:** Eliminate every runtime crash. Align the entire codebase with the `project_members` db model introduced in the db refactor. Every navigation view must render without errors before Phase 1 begins.  
 > **Target:** Before any public or team demo.
-
-### 🔴 Identity Migration — Global `users` → `project_members`
-
-#### Step 1 — Replace Tables in `db.ts`
-
-- [x] Remove the `users` table `CREATE TABLE` statement from `createTables()` in `db.ts`
-- [x] Remove the `project_users` join table `CREATE TABLE` statement from `createTables()` in `db.ts`
-- [x] Add the `project_members` table to `createTables()` in `db.ts`:
-  ```sql
-  CREATE TABLE IF NOT EXISTS project_members (
-    id            TEXT PRIMARY KEY,
-    project_id    TEXT NOT NULL,
-    auth_uid      TEXT NOT NULL,
-    display_name  TEXT NOT NULL,
-    photo_url     TEXT,
-    role          TEXT DEFAULT 'member',
-    joined_at     DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
-    UNIQUE (project_id, auth_uid)
-  );
-  ```
-- [x] Add `ProjectMember` interface export to `db.ts`:
-  ```ts
-  export interface ProjectMember {
-    id: string;
-    projectId: string;
-    authUid: string;
-    displayName: string;
-    photoUrl: string | null;
-    role: string;
-    joinedAt: string;
-  }
-  ```
-- [x] Delete the `User` interface export from `db.ts`
-- [x] Remove `users` and `project_users` from the `persist()` table list in `db.ts`
-- [x] Remove `users` and `project_users` from the IndexedDB restore loop in `db.init()`
-- [x] Add `project_members` to the `persist()` table list in `db.ts`
-- [x] Add `project_members` to the IndexedDB restore loop in `db.init()`
-
-#### Step 2 — Replace User Methods with Member Methods in `db.ts`
-
-- [ ] Delete `db.getUsers()` from `db.ts`
-- [ ] Delete `db.getProjectTeam()` from `db.ts`
-- [ ] Delete `db.addUser()` from `db.ts`
-- [ ] Delete `db.updateUser()` from `db.ts`
-- [ ] Delete `db.deleteUser()` from `db.ts`
-- [ ] Delete `db.addUserToProject()` from `db.ts`
-- [ ] Delete `db.removeUserFromProject()` from `db.ts`
-- [ ] Add `db.getProjectMembers(projectId): Promise<ProjectMember[]>` — queries `project_members WHERE project_id = ?`
-- [ ] Add `db.addProjectMember(projectId, authUid, displayName, photoUrl?, role?): Promise<string>` — uses `INSERT OR IGNORE` so it is safe to call on every sign-in session
-- [ ] Add `db.removeProjectMember(projectId, authUid): Promise<void>`
-
-#### Step 3 — Seeder Cleanup
-
-- [ ] Remove `SEED_USERS` array and its type imports from `src/services/seedData.ts`
-- [ ] Remove all `INSERT INTO users` statements from `src/services/seeder.ts`
-- [ ] Remove all `INSERT INTO project_users` statements from `src/services/seeder.ts`
-- [ ] Remove the `otherUserIds` variable and all logic that builds or iterates it in `seeder.ts`
-- [ ] Remove the `"Me" user` bootstrap block from `seeder.ts`
-- [ ] Remove `localStorage.setItem('myUserId', ...)` calls from `seeder.ts` — identity comes from auth
-- [ ] Remove `localStorage.setItem('myUserId', 'me')` from `src/main.tsx`
-- [ ] Remove `assigneeType` field from every task object in `SEED_TASKS` in `src/services/seedData.ts`
-- [ ] Remove `tAssignees` variable and `assignee_ids` bind value from the task insert loop in `seeder.ts` — tasks seed unassigned until auth provides a real UID
-- [x] Verify seeder runs without errors after all removals: `npm run seed`
-
-#### Step 4 — Remove `ProfileSettingsView`, Stub `TeamView`
-
-`ProfileSettingsView` managed the hand-rolled user entity — it is deleted here and rebuilt in Phase 1 against `useAuth()`. `TeamView` is kept as a stub because the concept is correct — it will be rebuilt in Phase 1 against `project_members`.
-
-- [ ] Delete `src/views/ProfileSettingsView.tsx`
-- [ ] Remove the `/project/:name/profile` route from `App.tsx`
-- [ ] Remove the `Profile` link from the `Sidebar` footer in `Navigation.tsx`
-- [ ] Remove the `Profile` link from the `Navbar` user avatar click target in `Navigation.tsx`
-- [ ] Replace the user avatar + name display block in the `Sidebar` footer with a static placeholder: `<p>Sign in to see your profile</p>` — wired in Phase 1
-- [ ] Remove `currentUser` prop (`User` type) from `Sidebar` component signature and all `App.tsx` call sites
-- [ ] Remove `currentUser` prop (`User` type) from `Navbar` component signature and all `App.tsx` call sites
-- [ ] Remove `currentUser` state (`User | null`) and `refreshUser()` function from `App.tsx`
-- [ ] Remove the `profileUpdated` custom event listener from `App.tsx`
-- [ ] Gut `src/views/TeamView.tsx` — remove all hand-rolled CRUD logic, replace body with a `<p>Team management available after sign-in.</p>` placeholder; file stays and will be rebuilt in Phase 1
-
-#### Step 5 — Clean Up `ProjectSettingsView`
-
-- [ ] Remove the entire **Team Management** UI section from `ProjectSettingsView.tsx` — the member grid, "Add Member" and "Invite New" buttons, and both modals
-- [ ] Remove `handleAddUser`, `handleRemoveUser`, `handleCreateUser`, `handleDeleteUserGlobally` functions
-- [ ] Remove `isAddUserModalOpen`, `isCreateUserModalOpen`, `newUserName`, `newUserEmail`, `newUserRole` state variables
-- [ ] Remove `allUsers`, `team`, `fetchTeam()` and their `useEffect` call
-
-#### Step 6 — Simplify Assignee UI (Temporary — Restored in Phase 1 Step 9)
-
-`assigneeIds` stays on `Task` — no schema change needed. The assignee UI is temporarily simplified because there are no real members to display until Phase 1 populates `project_members`.
-
-- [ ] In `TaskForm.tsx`: remove the `users?: User[]` prop and the Assignees pill section from the form — tasks are created unassigned for now
-- [ ] In `TaskForm.tsx`: remove `assigneeIds` from the `onSubmit` payload temporarily
-- [ ] In `TaskDetailModal.tsx`: replace the `db.getProjectTeam()` call with `db.getProjectMembers(task.projectId)` — returns an empty array until Phase 1; keep the Assignees panel UI in place rendering the empty state
-- [ ] In `BoardView.tsx`: remove `usersData` from `fetchData()` and the `users` prop from `TaskForm`
-- [ ] In `TaskCard.tsx`: guard the avatar stack render: only render when `assignees.length > 0`
-
-#### Step 7 — Update `Avatar` Component
-
-`Avatar` stays. Decouple it from the deleted `User` type so it is ready for auth-provided data:
-
-- [ ] Replace `initials?: string` and `src?: string` props with `displayName: string` and `photoUrl?: string`
-- [ ] Derive initials internally: `displayName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)`
-- [ ] Update all `<Avatar>` call sites to pass `displayName` instead of `initials`
-
-#### Step 8 — Verification
-
-- [ ] Run `tsc --noEmit` — zero errors relating to `User`, `getUsers`, `getProjectTeam`, `addUser`, `updateUser`, `deleteUser`, `addUserToProject`, `removeUserFromProject`
-- [ ] Run the app — confirm no console errors on any view
-- [ ] Confirm the `/project/:name/profile` route no longer exists (redirect or 404)
-- [ ] Confirm `TeamView` renders its placeholder text without crashing
-- [ ] Confirm `TaskDetailModal` Assignees panel renders an empty state without crashing
-- [ ] Confirm `TaskForm` creates a task successfully without assignees
 
 ---
 
-### 🔴 DB Layer — Missing Sprint Methods
+### 🔴 DB Layer — Stale Table References in `db.ts`
 
-These are called by `SprintView` but do not exist in `db.ts` — the view throws on every load today.
+The `addProject()` and `manualSeed()` methods still reference `project_users` and `users`, which no longer exist in the schema. Both throw a SQLite "no such table" error at runtime.
 
-- [ ] Add a `sprints` table to `createTables()` in `db.ts`:
-  ```sql
-  CREATE TABLE IF NOT EXISTS sprints (
-    id          TEXT PRIMARY KEY,
-    project_id  TEXT NOT NULL,
-    name        TEXT NOT NULL,
-    start_date  TEXT,
-    end_date    TEXT,
-    status      TEXT DEFAULT 'planned',
-    FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
-  );
-  ```
-- [ ] Export `interface Sprint { id: string; projectId: string; name: string; startDate: string; endDate: string; status: 'planned' | 'active' | 'completed' }` from `db.ts`
-- [ ] Add `db.getSprints(projectId): Promise<Sprint[]>` to `db.ts`
-- [ ] Add `db.addSprint(sprint: Omit<Sprint, 'id'>): Promise<string>` to `db.ts`
-- [ ] Add `sprints` to the `persist()` table list and the IndexedDB restore loop in `db.ts`
+- [ ] `src/services/db.ts` `addProject()` method — `INSERT INTO project_users (project_id, user_id, role)` block → remove the entire block (lines containing `myId` and the `project_users` INSERT); project membership will be established in Phase 1 via `addProjectMember()`
+- [ ] `src/services/db.ts` `manualSeed()` method — `DELETE FROM project_users; DELETE FROM projects; DELETE FROM users;` exec string → remove `DELETE FROM project_users;` and `DELETE FROM users;` from the string, keep only `DELETE FROM columns; DELETE FROM tasks; DELETE FROM activities; DELETE FROM subtasks; DELETE FROM comments; DELETE FROM project_members;`
+
+---
+
+### 🔴 DB Layer — Missing Sprint Methods and Interface
+
+`SprintView` imports `Sprint` from `db.ts` (does not exist) and calls `db.getSprints()` and `db.addSprint()` (do not exist). The view crashes on load.
+
+- [ ] `src/services/db.ts` after the `ProjectMember` interface — add `export interface Sprint { id: string; projectId: string; name: string; startDate: string; endDate: string; status: 'planned' | 'active' | 'completed' }` 
+- [ ] `src/services/db.ts` after the `addActivity()` method — add `async getSprints(projectId: string): Promise<Sprint[]>` querying `SELECT * FROM sprints WHERE project_id = ? ORDER BY start_date ASC`
+- [ ] `src/services/db.ts` after `getSprints()` — add `async addSprint(sprint: Omit<Sprint, 'id'>): Promise<string>` inserting into the `sprints` table with a generated id
+- [ ] `src/services/db.ts` `persist()` tables array — `['projects', 'columns', 'project_members', 'tasks', ...]` → add `'sprints'` to the array
+- [ ] `src/services/db.ts` `init()` restore loop — add `'sprints'` to the tables iterated when restoring from IndexedDB
+
+---
+
+### 🔴 Seeder — Inserts into Deleted Tables, Crashes Fresh Install
+
+`seeder.ts` inserts into `users` and `project_users` (both deleted). On a fresh install `performSeed()` is called during `db.init()`, throws, and leaves the app with no data.
+
+- [ ] `src/services/seedData.ts` — `export const SEED_USERS` array and its `User` type import → delete the entire `SEED_USERS` export and the `User` import at the top of the file
+- [ ] `src/services/seedData.ts` — every object in `SEED_TASKS` has `assigneeType: 'me' | 'team' | 'none'` field → remove `assigneeType` from all 9 task objects in the array
+- [ ] `src/services/seeder.ts` — `import { SEED_USERS, ... }` line → remove `SEED_USERS` from the import destructure
+- [ ] `src/services/seeder.ts` — `INSERT OR IGNORE INTO users ...` exec block and `INSERT INTO project_users ...` exec block → delete both blocks entirely
+- [ ] `src/services/seeder.ts` — `const otherUserIds: string[] = []` variable and all code that builds or iterates it → delete the variable declaration and the `for (const u of SEED_USERS)` loop
+- [ ] `src/services/seeder.ts` — `const myUserId = localStorage.getItem('myUserId') || 'me'` and the `INSERT OR IGNORE INTO users` "Me" bootstrap block → delete both lines/block
+- [ ] `src/services/seeder.ts` — `let tAssignees: string[] = []` and the `if (t.assigneeType === 'me')` / `else if` block → delete; replace `tAssignees.join(',')` in the task INSERT bind with `''` (empty string)
+- [ ] `src/main.tsx` — `if (!localStorage.getItem('myUserId')) { localStorage.setItem('myUserId', 'me'); }` block → delete the entire if block
+
+---
+
+### 🔴 App.tsx — Deleted `User` Type, Deleted `db.getUsers()`, Broken `refreshUser()`
+
+`App.tsx` imports the deleted `User` type, calls the deleted `db.getUsers()`, and passes a broken `currentUser: User | null` state to `Sidebar` and `Navbar`. The entire nav identity display is non-functional.
+
+- [ ] `src/App.tsx` — `import { db, Project, User } from './services/db'` → remove `User` from the import; change to `import { db, Project } from './services/db'`
+- [ ] `src/App.tsx` — `const [currentUser, setCurrentUser] = useState<User | null>(null)` state declaration → delete the state declaration
+- [ ] `src/App.tsx` — `const refreshUser = async () => { ... }` function (all ~10 lines) → delete the entire function
+- [ ] `src/App.tsx` — `await refreshUser()` call inside `initDb()` → delete this line
+- [ ] `src/App.tsx` — `const handleProfileUpdate = () => refreshUser()` and `window.addEventListener('profileUpdated', handleProfileUpdate)` and its cleanup → delete all three lines
+- [ ] `src/App.tsx` — `currentUser={currentUser}` prop on `<Sidebar>` and `<Navbar>` → remove the prop from both JSX elements
+
+---
+
+### 🔴 Navigation.tsx — Deleted `User` Type in Props
+
+`Navigation.tsx` imports the deleted `User` type and uses it in `SidebarProps` and the `Navbar` function signature. Both components crash to TypeScript errors and render broken identity sections.
+
+- [ ] `src/components/Navigation.tsx` line ~5 — `import { Project, User } from '../services/db'` → remove `User` from the import; change to `import { Project } from '../services/db'`
+- [ ] `src/components/Navigation.tsx` `SidebarProps` interface — `currentUser: User | null` field → replace with `ownerName?: string` and `ownerPhotoUrl?: string`
+- [ ] `src/components/Navigation.tsx` `Sidebar` component body — avatar/name block in the footer that reads `currentUser?.initials` and `currentUser?.name` → replace with `<p className="text-sm text-app-text-secondary">Sign in to see your profile</p>` static placeholder
+- [ ] `src/components/Navigation.tsx` `Navbar` function signature — `currentUser: User | null` parameter → remove; remove all `currentUser?.` references in the Navbar body; replace the avatar with `<div className="size-6 rounded-full bg-primary/20" />`
+
+---
+
+### 🔴 Views — Calls to Deleted `db.getProjectTeam()` and `db.getUsers()`
+
+Five views and one component call methods deleted in the db refactor. Each throws an unhandled rejection on mount.
+
+- [ ] `src/views/BacklogView.tsx` line ~19 — `db.getProjectTeam(currentProject.id)` in `fetchData()` → replace with `db.getProjectMembers(currentProject.id)`; update `setUsers` state type from `User[]` to `ProjectMember[]`; update the `User` import to `ProjectMember`
+- [ ] `src/views/BoardView.tsx` line ~24 — `db.getProjectTeam(currentProject.id)` in `fetchData()` → replace with `db.getProjectMembers(currentProject.id)`; update `users` state type from `User[]` to `ProjectMember[]`; update all `User` imports to `ProjectMember`
+- [ ] `src/views/DashboardView.tsx` line ~45 — `db.getUsers()` in `fetchData()` → remove this call and remove `setUsers` / `users` state entirely; remove the `User` import; the activity feed avatar currently maps `activity.userId` against `users` — replace with a static `<div className="size-6 rounded-full bg-primary/20" />` placeholder until Phase 1 wires real member data
+- [ ] `src/components/TaskDetailModal.tsx` line ~78 — `db.getProjectTeam(task.projectId)` in `fetchData()` → replace with `db.getProjectMembers(task.projectId)`; update `team` state type from `User[]` to `ProjectMember[]`; update all avatar renders from `u.initials`/`u.avatarUrl` to `m.displayName`/`m.photoUrl`; remove `User` import, add `ProjectMember` import
+- [ ] `src/views/TeamView.tsx` — entire component body calls `db.getProjectTeam()`, `db.getUsers()`, `db.addUser()`, `db.addUserToProject()`, `db.removeUserFromProject()` → gut the component; replace body with `<div className="flex-1 flex items-center justify-center p-10"><p className="text-app-text-secondary">Team management available after sign-in.</p></div>`; keep the file
+- [ ] `src/views/ProfileSettingsView.tsx` — entire component calls `db.getUsers()`, `db.addUser()`, `db.updateUser()` → gut the component; replace body with `<div className="flex-1 flex items-center justify-center p-10"><p className="text-app-text-secondary">Profile available after sign-in.</p></div>`; keep the file
+- [ ] `src/views/ProjectSettingsView.tsx` — `fetchTeam()` function and all code that calls `db.getProjectTeam()`, `db.getUsers()`, `db.addUserToProject()`, `db.removeUserFromProject()`, `db.deleteUser()` → remove the entire Team Management UI section (member grid, modals, `isAddUserModalOpen`, `isCreateUserModalOpen`, `team`, `allUsers` state, `fetchTeam`, `handleAddUser`, `handleRemoveUser`, `handleCreateUser`, `handleDeleteUserGlobally`); keep General Information, Visual Identity, Sprint Configuration sections
+
+---
+
+### 🔴 Views — Broken `TaskForm` and `TaskCard` with Deleted `User` Type
+
+`TaskForm` accepts `users?: User[]` which references the deleted type. `BoardView` passes `usersData` (now `ProjectMember[]`) as `users` to `TaskForm`, causing a type mismatch.
+
+- [ ] `src/components/TaskForm.tsx` — `import { Priority, User } from '../services/db'` → remove `User` from import; change to `import { Priority, ProjectMember } from '../services/db'`
+- [ ] `src/components/TaskForm.tsx` `TaskFormProps` interface — `users?: User[]` → change to `users?: ProjectMember[]`
+- [ ] `src/components/TaskForm.tsx` — avatar pill in the assignees section reads `u.initials`/`u.avatarUrl` → replace with `u.displayName`/`u.photoUrl`; update `<Avatar>` call to pass `displayName={u.displayName}` and `photoUrl={u.photoUrl}`
+- [ ] `src/views/BoardView.tsx` — `usersData` returned by `db.getProjectMembers()` now typed `ProjectMember[]`; the `users` prop passed to `<TaskForm>` must match → verify the prop type aligns after the `TaskForm` change above; no code change needed if types are consistent
+
+---
+
+### 🔴 Avatar Component — Decouple from Deleted `User` Props
+
+`Avatar.tsx` uses `initials` and `src` props, tightly coupling it to the old `User` model. All call sites need updating for the new `displayName`/`photoUrl` shape from `ProjectMember`.
+
+- [ ] `src/components/Avatar.tsx` `AvatarProps` interface — `src?: string` and `initials?: string` → replace with `displayName: string` and `photoUrl?: string`
+- [ ] `src/components/Avatar.tsx` render body — `{src ? <img ...> : <span>{initials}</span>}` → derive initials internally: `const initials = displayName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)`; render `{photoUrl ? <img src={photoUrl} ...> : <span>{initials}</span>}`
+- [ ] `src/components/TaskCard.tsx` — `assignees?: { src?: string; initials?: string }[]` prop type → change to `assignees?: { displayName: string; photoUrl?: string }[]`; update the avatar stack render to pass `displayName` and `photoUrl`
+- [ ] `src/views/BoardView.tsx` `SortableTaskCard` — `assignees` mapped as `{ initials: u.initials, src: u.avatarUrl }` → change to `{ displayName: u.displayName, photoUrl: u.photoUrl ?? undefined }`
+- [ ] `src/components/TaskDetailModal.tsx` — all `<Avatar initials={...} src={...}>` calls → change to `<Avatar displayName={...} photoUrl={...}>`
+- [ ] `src/views/StorybookView.tsx` — `<Avatar initials="JD" />` and `<Avatar initials="AS" size="lg" />` etc. → change to `<Avatar displayName="John Doe" />` etc.
 
 ---
 
 ### 🔴 Bug Fixes — Broken View Logic
 
-- [ ] **`CalendarView`** — Remove the non-existent `assigneeId` field from the `addTask` object literal — tasks are created unassigned until auth is wired in Phase 1
-- [ ] **`CalendarView`** — Fix broken loading state: the `if (loading) { // ... }` stub has no `return` — add `return <LoadingSpinner />` so the spinner actually renders
-- [ ] **`BoardView`** — Wire `onDelete` from `TaskCard` context menu through `SortableTaskCard` to `db.deleteTask(id)` then call `fetchData()`
-- [ ] **`BoardView`** — Wire `onArchive` from `TaskCard` context menu to `db.updateTask(id, { isArchived: true })` then call `fetchData()`
-- [ ] **`DashboardView`** — Fix broken "View all tasks" navigation: replace `route('/project/${currentProject.id}/board')` with `route('/project/${slugify(currentProject.name)}/board')`
+- [ ] `src/views/CalendarView.tsx` `handleAddTask()` object literal — `assigneeId: myUserId || undefined` field (singular, non-existent on `Task`) → remove the `assigneeId` field entirely; tasks created from calendar will be unassigned
+- [ ] `src/views/CalendarView.tsx` lines ~95–98 — `if (loading) { // ... (rest of loading check) }` → replace the comment stub body with `return <div className="flex-1 flex items-center justify-center"><Loader2 className="animate-spin text-primary" size={40} /></div>;`
+- [ ] `src/views/BoardView.tsx` `SortableTaskCard` `<TaskCard>` JSX — `onDelete` and `onArchive` props are missing → add `onDelete={async (e) => { e.stopPropagation(); await db.deleteTask(task.id); fetchData(); }}` and `onArchive={async (e) => { e.stopPropagation(); await db.updateTask(task.id, { isArchived: true }); fetchData(); }}`; pass `fetchData` as a prop or lift it
+- [ ] `src/views/DashboardView.tsx` line ~145 — `route('/project/${currentProject.id}/board')` → replace `currentProject.id` with `slugify(currentProject.name)`; add `const slugify = (name: string) => name.toLowerCase().replace(/\s+/g, '_')` if not already in scope
 
 ---
 
 ### 🔴 Data Safety — Async Persistence Race Condition
 
-- [ ] Replace the `async persist()` call inside `beforeunload` with a `visibilitychange` listener as the primary trigger:
-  ```ts
-  document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'hidden' && this.isDirty) this.persist();
-  });
-  ```
-- [ ] Keep `beforeunload` as a secondary last-resort signal — not awaited, fire-and-hope
-- [ ] Add `isDirty: boolean` flag to `DatabaseService` — set `true` on every write, `false` after a successful `persist()`
-- [ ] Add a "Saving…" / "All changes saved" status indicator in `Navbar` driven by the `isDirty` flag
+`beforeunload` is called with an async `persist()` that the browser does not await. Data written in the last 2 seconds before tab close is silently lost.
+
+- [ ] `src/services/db.ts` `init()` — `window.addEventListener('beforeunload', () => this.persist())` → add before it: `document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden' && this.isDirty) this.persist(); });`; keep the `beforeunload` listener as a secondary fire-and-hope fallback
+- [ ] `src/services/db.ts` `DatabaseService` class — add `private isDirty = false` field after `private persistTimeout`
+- [ ] `src/services/db.ts` `schedulePersist()` method — `if (this.persistTimeout) clearTimeout(...)` line → add `this.isDirty = true;` before the timeout assignment
+- [ ] `src/services/db.ts` `persist()` method — `await this.storage.writeAllTables(data)` call → add `this.isDirty = false;` on the line immediately after
 
 ---
 
-### 🔴 PWA — Fix Offline Install Failure
+### 🔴 PWA — Offline Install Failure
 
-- [ ] Download the two app icon images and save as `public/icons/icon-192.png` and `public/icons/icon-512.png`
-- [ ] Update both `"src"` fields in `public/manifest.json` to use local paths (`/icons/icon-192.png`, `/icons/icon-512.png`)
+Both PWA icons reference an external Google CDN URL. The service worker does not cache these. Offline installs fail.
+
+- [ ] `public/manifest.json` — both `"src"` fields pointing to `lh3.googleusercontent.com` → change first to `/icons/icon-192.png` and second to `/icons/icon-512.png`; download or create placeholder icons and save to `public/icons/` directory
+- [ ] `index.html` — `<link rel="apple-touch-icon" href="https://lh3.googleusercontent.com/...">` → change `href` to `/icons/icon-192.png`
 
 ---
 
 ### ⚡ Quick Wins — Fix in One Sitting
 
-- [ ] Remove duplicate `vite` entry from `dependencies` in `package.json` — keep only in `devDependencies`
-- [ ] Add missing `import { useState, useEffect } from 'preact/hooks'` to `SprintView.tsx`
-- [ ] Add `localStorage.setItem('hasSeenLanding', 'true')` to `seeder.ts` so returning users skip the landing page
-- [ ] Add `<meta name="apple-mobile-web-app-title" content="TrackerPro" />` to `index.html`
+- [ ] `src/views/TeamView.tsx` line ~2 — missing `useState` and `useEffect` imports → add `import { useState, useEffect } from 'preact/hooks'`
+- [ ] `src/views/SprintView.tsx` line ~2 — missing `useState` and `useEffect` imports → add `import { useState, useEffect } from 'preact/hooks'`
+- [ ] `package.json` `dependencies` — `"vite": "^6.2.0"` duplicate entry → remove `vite` from `dependencies`; keep only in `devDependencies`
+- [ ] `package.json` `dependencies` — `"vite-plugin-pwa": "^0.21.1"` not installed and not used → remove entry; re-add in Phase 2 when properly configured
+- [ ] `index.html` `<head>` — missing iOS PWA title meta → add `<meta name="apple-mobile-web-app-title" content="TrackerPro" />`
+- [ ] `src/services/seeder.ts` near the end — `localStorage.setItem('isLoggedIn', 'true')` present but `localStorage.setItem('hasSeenLanding', 'true')` missing → add `localStorage.setItem('hasSeenLanding', 'true')` on the line below
+
+---
+
+### 🔴 Phase 0 Verification
+
+- [ ] Run `tsc --noEmit` — zero errors relating to `User`, `getUsers`, `getProjectTeam`, `addUser`, `updateUser`, `deleteUser`, `addUserToProject`, `removeUserFromProject`
+- [ ] Run `npm run seed` (or `npm run dev` fresh) — confirm seeder executes without SQLite errors and the app boots with data
+- [ ] Open every navigation view in the browser — confirm no console errors on `ProfileSettingsView` stub, `TeamView` stub, `ProjectSettingsView`, `BoardView`, `BacklogView`, `DashboardView`, `CalendarView`, `SprintView`
+- [ ] Open a task detail modal — confirm subtasks, comments, and assignees panel render without errors (empty state is acceptable)
+- [ ] Drag a task in the board — confirm drag-and-drop works and delete/archive buttons fire correctly
+- [ ] Close the tab within 1 second of creating a task — reopen and confirm the task is still present
 
 ---
 
 ## Phase 1 — Core Product Promises
-> **Goal:** Implement real authentication, rebuild project membership on top of real auth identities, restore the full assignee UI, and deliver the remaining core product promises.  
+> **Goal:** Implement real Firebase authentication, rebuild project membership on real auth identities, restore the full assignee UI, and deliver the remaining core product promises.  
 > **Target:** End of Sprint 1 after Phase 0.
+
+---
 
 ### 🟠 Authentication — Firebase with Decoupled Provider Adapter
 
-**Design principle:** Firebase is an implementation detail. The app communicates only with an `AuthProvider` interface. The Firebase adapter is the only file in the entire project that imports from `'firebase'`. Swapping to Auth0, Supabase, or any other federated provider requires replacing one adapter file — zero changes to views, hooks, context, or the database layer.
+The `AuthProvider` interface decouples Firebase from the rest of the app. Swapping providers requires changing one adapter file.
 
-#### Step 1 — Define the `AuthProvider` Interface
+- [ ] `src/auth/AuthProvider.ts` — does not exist → create file; export `interface AuthUser { uid: string; displayName: string; email: string | null; photoUrl: string | null }` and `interface AuthProvider { onAuthStateChanged(cb): () => void; signInWithGoogle(): Promise<AuthUser>; signOut(): Promise<void>; getCurrentUser(): AuthUser | null }`
+- [ ] `src/auth/getAuthProvider.ts` — does not exist → create file; export singleton `initAuth(provider: AuthProvider): void` and `getAuthProvider(): AuthProvider`
+- [ ] `src/auth/index.ts` — does not exist → create file; re-export `AuthUser`, `AuthProvider`, `initAuth`, `getAuthProvider`
+- [ ] `src/auth/adapters/FirebaseAuthAdapter.ts` — does not exist → create file; implement `createFirebaseAuthAdapter(): AuthProvider`; this is the ONLY file in the project that may import from `'firebase'`
+- [ ] `.env.example` — missing Firebase env vars → add `VITE_FIREBASE_API_KEY=`, `VITE_FIREBASE_AUTH_DOMAIN=`, `VITE_FIREBASE_PROJECT_ID=` with comments
+- [ ] `src/main.tsx` — `render(<App />, ...)` call → add `import { initAuth } from './auth'` and `import { createFirebaseAuthAdapter } from './auth/adapters/FirebaseAuthAdapter'`; call `initAuth(createFirebaseAuthAdapter())` before `render()`
+- [ ] `src/context/AuthContext.tsx` — does not exist → create file; export `<AuthProvider>` component and `useAuth()` hook returning `{ user: AuthUser | null, isLoading: boolean, signInWithGoogle, signOut }`
+- [ ] `src/main.tsx` — `<App />` in `render()` call → wrap with `<AuthProvider>`
 
-- [ ] Create `src/auth/AuthProvider.ts`:
-  ```ts
-  export interface AuthUser {
-    uid: string;
-    displayName: string;
-    email: string | null;
-    photoUrl: string | null;
-  }
+---
 
-  export interface AuthProvider {
-    /** Subscribe to auth state changes — returns an unsubscribe function */
-    onAuthStateChanged(callback: (user: AuthUser | null) => void): () => void;
-    /** Sign in via Google federated popup */
-    signInWithGoogle(): Promise<AuthUser>;
-    /** Sign out the current session */
-    signOut(): Promise<void>;
-    /** Return the current user synchronously, or null if not signed in */
-    getCurrentUser(): AuthUser | null;
-  }
-  ```
-- [ ] Create `src/auth/getAuthProvider.ts` — singleton factory:
-  ```ts
-  import type { AuthProvider } from './AuthProvider';
+### 🟠 Authentication — Wire Auth into App and Login Flow
 
-  let instance: AuthProvider | null = null;
+- [ ] `src/App.tsx` — `isLoggedIn` state and `localStorage.getItem('isLoggedIn')` → replace with `const { user, isLoading } = useAuth()`; show `<LoginView>` when `!user && !isLoading`; show `<LandingView>` when `!user && !isLoading && !hasSeenLanding`
+- [ ] `src/views/LoginView.tsx` — `setTimeout` fake login → replace with `const { signInWithGoogle } = useAuth()`; remove fake email/password fields; keep only a Google sign-in button; show `<Loader2>` while `isLoading`
 
-  export function initAuth(provider: AuthProvider): void {
-    instance = provider;
-  }
+---
 
-  export function getAuthProvider(): AuthProvider {
-    if (!instance) throw new Error('Auth not initialised — call initAuth() before rendering.');
-    return instance;
-  }
-  ```
-- [ ] Create `src/auth/index.ts` — the only import path the rest of the app uses:
-  ```ts
-  export type { AuthUser, AuthProvider } from './AuthProvider';
-  export { initAuth, getAuthProvider } from './getAuthProvider';
-  ```
+### 🟠 Project Member Sync at Sign-In
 
-#### Step 2 — Implement the Firebase Adapter
+- [ ] `src/App.tsx` — after `db.init()` resolves and `user` is non-null → add `await db.addProjectMember(currentProjectId, user.uid, user.displayName, user.photoUrl)` call; the `UNIQUE (project_id, auth_uid)` constraint makes this idempotent
 
-- [ ] Install Firebase: `npm install firebase`
-- [ ] Create `src/auth/adapters/FirebaseAuthAdapter.ts` — the **only** file in the codebase that imports from `'firebase'`:
-  ```ts
-  import { initializeApp } from 'firebase/app';
-  import {
-    getAuth,
-    onAuthStateChanged as fbOnAuthStateChanged,
-    signInWithPopup,
-    GoogleAuthProvider,
-    signOut as fbSignOut,
-    type User as FirebaseUser,
-  } from 'firebase/auth';
-  import type { AuthProvider, AuthUser } from '../AuthProvider';
+---
 
-  function toAuthUser(fb: FirebaseUser): AuthUser {
-    return {
-      uid: fb.uid,
-      displayName: fb.displayName ?? 'Anonymous',
-      email: fb.email,
-      photoUrl: fb.photoURL,
-    };
-  }
+### 🟠 Replace All Remaining `localStorage.getItem('myUserId')` Reads
 
-  export function createFirebaseAuthAdapter(): AuthProvider {
-    const app = initializeApp({
-      apiKey:     import.meta.env.VITE_FIREBASE_API_KEY,
-      authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-      projectId:  import.meta.env.VITE_FIREBASE_PROJECT_ID,
-    });
-    const auth = getAuth(app);
+- [ ] `src/services/db.ts` `addTask()` method — `const myId = localStorage.getItem('myUserId')` line and `finalAids` fallback to `myId` → the task creation default assignee logic should be removed from the service layer; callers should pass `assigneeIds` explicitly or pass `[]`
+- [ ] `src/components/TaskDetailModal.tsx` — `const myId = localStorage.getItem('myUserId') || 'me'` in `handleAddComment()` → replace with `const { user } = useAuth(); const myId = user?.uid`
+- [ ] `src/components/TaskForm.tsx` — `const myId = localStorage.getItem('myUserId')` in `useState` initializer → replace with `const { user } = useAuth(); ... return user?.uid ? [user.uid] : []`
 
-    return {
-      onAuthStateChanged(callback) {
-        return fbOnAuthStateChanged(auth, user => callback(user ? toAuthUser(user) : null));
-      },
-      async signInWithGoogle() {
-        const result = await signInWithPopup(auth, new GoogleAuthProvider());
-        return toAuthUser(result.user);
-      },
-      async signOut() {
-        await fbSignOut(auth);
-      },
-      getCurrentUser() {
-        return auth.currentUser ? toAuthUser(auth.currentUser) : null;
-      },
-    };
-  }
-  ```
-- [ ] Create `src/auth/adapters/index.ts` re-exporting `createFirebaseAuthAdapter`
-- [ ] Add Firebase env vars to `.env.example`:
-  ```
-  # Firebase Auth — get these values from your Firebase project console.
-  # Note: VITE_* values are embedded in the browser bundle.
-  # Only use a Firebase project scoped specifically to this application.
-  VITE_FIREBASE_API_KEY=
-  VITE_FIREBASE_AUTH_DOMAIN=
-  VITE_FIREBASE_PROJECT_ID=
-  ```
+---
 
-#### Step 3 — Bootstrap Auth in `main.tsx`
+### 🟠 Rebuild Navigation with Real Auth Identity
 
-- [ ] Import `initAuth` and `createFirebaseAuthAdapter` in `main.tsx`
-- [ ] Call `initAuth(createFirebaseAuthAdapter())` before `render(<App />, ...)` — auth is registered before any component mounts
-- [ ] Confirm `localStorage.setItem('myUserId', 'me')` has already been removed (Phase 0 Step 3)
+- [ ] `src/components/Navigation.tsx` `Sidebar` footer section — static placeholder added in Phase 0 → replace with `const { user, signOut } = useAuth()`; render `<Avatar displayName={user.displayName} photoUrl={user.photoUrl ?? undefined} />` and user name; wire the logout button to `signOut()`
+- [ ] `src/components/Navigation.tsx` `Navbar` user section — static placeholder → replace with `const { user } = useAuth()`; render `<Avatar displayName={user?.displayName ?? 'Guest'} photoUrl={user?.photoUrl ?? undefined} size="sm" />`
 
-#### Step 4 — `AuthContext` and `useAuth` Hook
+---
 
-- [ ] Create `src/context/AuthContext.tsx`:
-  ```ts
-  import { createContext } from 'preact';
-  import { useContext, useState, useEffect } from 'preact/hooks';
-  import { getAuthProvider } from '../auth';
-  import type { AuthUser } from '../auth';
+### 🟠 Rebuild `TeamView` with Real `project_members` Data
 
-  interface AuthContextValue {
-    user: AuthUser | null;
-    isLoading: boolean;
-    signInWithGoogle: () => Promise<void>;
-    signOut: () => Promise<void>;
-  }
+- [ ] `src/views/TeamView.tsx` — Phase 0 placeholder body → replace with full implementation calling `db.getProjectMembers(currentProject.id)`; render each member as a card with `<Avatar displayName={m.displayName} photoUrl={m.photoUrl ?? undefined} />` + display name + role; allow the owner (`role === 'owner'`) to call `db.removeProjectMember(projectId, m.authUid)` via a remove button
 
-  const Ctx = createContext<AuthContextValue | null>(null);
+---
 
-  export function AuthProvider({ children }: { children: preact.ComponentChildren }) {
-    const [user, setUser] = useState<AuthUser | null>(null);
-    const [isLoading, setIsLoading] = useState(true);
+### 🟠 Rebuild `ProfileView` Against Auth
 
-    useEffect(() => {
-      return getAuthProvider().onAuthStateChanged(u => {
-        setUser(u);
-        setIsLoading(false);
-      });
-    }, []);
+- [ ] `src/views/ProfileSettingsView.tsx` — Phase 0 placeholder body → replace with a view that reads from `const { user, signOut } = useAuth()`; display `user.displayName`, `user.email`, `user.photoUrl`; provide a Sign Out button wired to `signOut()`; profile data is read-only (managed by the identity provider)
 
-    return (
-      <Ctx.Provider value={{
-        user,
-        isLoading,
-        signInWithGoogle: () => getAuthProvider().signInWithGoogle().then(setUser),
-        signOut: () => getAuthProvider().signOut().then(() => setUser(null)),
-      }}>
-        {children}
-      </Ctx.Provider>
-    );
-  }
+---
 
-  export function useAuth(): AuthContextValue {
-    const ctx = useContext(Ctx);
-    if (!ctx) throw new Error('useAuth must be used inside <AuthProvider>');
-    return ctx;
-  }
-  ```
-- [ ] Wrap `<App />` in `<AuthProvider>` in `main.tsx`
-- [ ] Replace `isLoggedIn` localStorage state in `App.tsx` with `const { user, isLoading } = useAuth()`
-- [ ] Replace `LoginView` render condition: show when `!user && !isLoading`
-- [ ] Replace `LandingView` render condition: show when `!user && !isLoading && !hasSeenLanding`
+### 🟠 Restore Full Assignee UI in `TaskForm` and `TaskDetailModal`
 
-#### Step 5 — Wire `LoginView`
+With `project_members` populated by real sign-ins, restore what was simplified in Phase 0.
 
-- [ ] Replace the simulated `setTimeout` login in `LoginView.tsx` with `const { signInWithGoogle } = useAuth()`
-- [ ] Remove the fake email/password fields — keep only the Google sign-in button
-- [ ] Show a loading spinner while `isLoading === true` to prevent a flash of unauthenticated content
-
-#### Step 6 — Project Member Sync at Sign-In
-
-When a user signs in and opens a project, register them as a project member:
-
-- [ ] In `App.tsx`, after `db.init()` resolves and `user` is non-null, call `db.addProjectMember(currentProjectId, user.uid, user.displayName, user.photoUrl)` — the `UNIQUE (project_id, auth_uid)` constraint makes this idempotent, so it is safe to call on every session
-- [ ] Replace all remaining `localStorage.getItem('myUserId')` reads with `user.uid` from `useAuth()`: `db.addTask` default assignee, `db.addComment` author, `db.startTaskTimer` actor
-
-#### Step 7 — Rebuild `TeamView`
-
-- [ ] Replace the Phase 0 placeholder in `TeamView.tsx` with a full implementation:
-  - Calls `db.getProjectMembers(currentProject.id)` to fetch the member list
-  - Renders each member as a card: `<Avatar displayName={m.displayName} photoUrl={m.photoUrl} />` + display name + role + joined date
-  - Allows the project owner (`role === 'owner'`) to call `db.removeProjectMember(projectId, m.authUid)` via a remove button
-- [ ] Re-add `/project/:name/team` route to `App.tsx`
-- [ ] Re-add the Team link to the `Sidebar` navigation items
-
-#### Step 8 — Rebuild Profile View
-
-- [ ] Create `src/views/ProfileView.tsx` — reads entirely from `useAuth()`, not from the database:
-  - Displays `user.displayName`, `user.email`, `user.photoUrl`
-  - Provides a **Sign Out** button that calls `signOut()`
-  - Profile data is read-only — managed by the identity provider, not the app
-- [ ] Add `/project/:name/profile` route to `App.tsx`
-- [ ] Wire the `Sidebar` footer user section to display `user.displayName` and `user.photoUrl` from `useAuth()`
-- [ ] Wire the `Navbar` avatar to display the signed-in user from `useAuth()`
-
-#### Step 9 — Restore Full Assignee UI
-
-With `project_members` now populated from real sign-ins, restore everything simplified in Phase 0:
-
-- [ ] In `TaskForm.tsx`: restore the Assignees section — call `db.getProjectMembers(projectId)`, render pill toggles using `<Avatar displayName={m.displayName} photoUrl={m.photoUrl} />`
-- [ ] In `TaskForm.tsx`: restore `assigneeIds` (array of `authUid` strings) in the `onSubmit` payload
-- [ ] In `TaskDetailModal.tsx`: restore the full Assignees sidebar panel — call `db.getProjectMembers(task.projectId)`, render with `ProjectMember` objects
-- [ ] In `BoardView.tsx` / `TaskCard.tsx`: restore the avatar stack — map `task.assigneeIds` against `project_members` to get `displayName`/`photoUrl`
-
-#### Step 10 — Provider Swap Verification
-
-- [ ] Add a **"Swapping the Auth Provider"** section to `README.md`: create a file implementing `AuthProvider`, call `initAuth(createYourAdapter())` in `main.tsx` — no other files need to change
-- [ ] Verify the claim: temporarily create a `MockAuthAdapter` with hardcoded test values, swap it in `main.tsx`, confirm the full app works end-to-end without touching any view, hook, or service file
+- [ ] `src/components/TaskForm.tsx` — assignees section currently renders `ProjectMember[]` passed as `users` prop → verify call in `BoardView` passes `db.getProjectMembers()` result; confirm pill toggles render `m.displayName` correctly
+- [ ] `src/components/TaskDetailModal.tsx` — assignees panel currently uses `ProjectMember[]` from `db.getProjectMembers()` → verify the Add Assignee modal renders correctly; confirm toggling assignees calls `db.updateTask(id, { assigneeIds: [...] })`
+- [ ] `src/views/BoardView.tsx` `SortableTaskCard` — avatar stack maps `task.assigneeIds` against `users` (now `ProjectMember[]`) to get `displayName`/`photoUrl` → verify the map uses `m.authUid` for the lookup key, not `m.id`
 
 ---
 
 ### 🟠 Data Export & Backup
 
-- [ ] Add an **Export to JSON** button in `ProjectSettingsView` — downloads tasks, columns, members, comments, and subtasks for the current project as a single `.json` file
-- [ ] Add a **Download SQLite Backup** button in `ProjectSettingsView` — exports the raw `.db` blob from IndexedDB as a downloadable file
-- [ ] Add an **Import from Backup** flow in `ProjectSettingsView` — accepts `.json` or `.db` and restores the data
-- [ ] Show a data-age warning in `ProjectSettingsView`: "Last backup: X days ago"
+- [ ] `src/views/ProjectSettingsView.tsx` — after the Sprint Configuration section → add an Export section with a "Download JSON" button that serializes tasks, columns, members, comments, subtasks for `currentProject` into a `.json` blob and triggers a download
+- [ ] `src/views/ProjectSettingsView.tsx` — after the JSON export button → add a "Download SQLite Backup" button that reads the raw IndexedDB blob and triggers a `.db` file download
+- [ ] `src/views/ProjectSettingsView.tsx` — below backup buttons → add a data-age warning: "Last backup: X days ago" derived from a `lastBackupAt` localStorage key updated on each export
 
 ---
 
 ### 🟠 Error Boundaries — Prevent Full App Crashes
 
-- [ ] Create `src/components/ErrorBoundary.tsx` as a Preact class component with a friendly fallback UI ("Something went wrong — tap to retry")
-- [ ] Wrap `BoardView` in `<ErrorBoundary>`
-- [ ] Wrap `SprintView` in `<ErrorBoundary>`
-- [ ] Wrap `TeamView` in `<ErrorBoundary>`
-- [ ] Wrap `ProjectSettingsView` in `<ErrorBoundary>`
-- [ ] Wrap `TaskDetailModal` in `<ErrorBoundary>`
-- [ ] Add global `window.onerror` and `window.onunhandledrejection` listeners that log errors and show a non-intrusive toast notification
+- [ ] `src/components/ErrorBoundary.tsx` — does not exist → create as a Preact class component with `componentDidCatch` and a fallback UI ("Something went wrong — tap to retry" + retry button that calls `window.location.reload()`)
+- [ ] `src/App.tsx` — `<Route path=".../board" component={BoardView} ...>` → wrap `BoardView` with `<ErrorBoundary>`
+- [ ] `src/App.tsx` — `<Route path=".../sprints" component={SprintView} ...>` → wrap with `<ErrorBoundary>`
+- [ ] `src/App.tsx` — `<Route path=".../team" component={TeamView} ...>` → wrap with `<ErrorBoundary>`
+- [ ] `src/App.tsx` — `<Route path=".../settings" component={ProjectSettingsView} ...>` → wrap with `<ErrorBoundary>`
+- [ ] `src/App.tsx` or `src/main.tsx` — add `window.onerror` and `window.onunhandledrejection` handlers that log errors and show a non-intrusive toast notification
 
 ---
 
-### 🟠 Mobile Search — Inaccessible on Phones
+### 🟠 Mobile Search
 
-- [ ] Add a search icon button to `BottomNav`
-- [ ] Build a `SearchOverlay` full-screen modal that activates on tap
-- [ ] Wire `SearchOverlay` to the same `searchQuery` state prop already used by `BoardView`
-- [ ] Make the `Navbar` search bar visible on mobile (currently hidden below the `sm` breakpoint)
+- [ ] `src/components/Navigation.tsx` `BottomNav` — four nav icons with no search entry point → add a Search icon button as a fifth tab item that opens a `SearchOverlay`
+- [ ] `src/views/SearchOverlay.tsx` — does not exist → create a full-screen modal component that accepts `searchQuery` state and `onClose`; renders a search input wired to the existing `searchQuery` prop
+- [ ] `src/App.tsx` — add `isSearchOpen` state; pass `onSearchOpen` to `BottomNav`; render `<SearchOverlay>` conditionally
 
 ---
 
 ### 🟠 Activity Feed — Always Empty After Seed
 
-- [ ] Write `addActivity()` call in `db.addTask()` — log `actorUid` from `useAuth()` + `"created task X"`
-- [ ] Write `addActivity()` call in `db.updateTask()` — log `actorUid` + `"updated task X"`
-- [ ] Write `addActivity()` call in `db.deleteTask()` — log `actorUid` + `"deleted task X"`
-- [ ] Write `addActivity()` call in `db.addComment()` — log `actorUid` + `"commented on task X"`
-- [ ] Write `addActivity()` call in `db.startTaskTimer()` / `stopTaskTimer()` — log `actorUid` + `"tracked N minutes on task X"`
-- [ ] Resolve `actorUid` against `project_members` in the `DashboardView` activity feed to display name + avatar
-- [ ] Paginate the activity feed in `DashboardView` (currently slices to 5 — add a "Load more" button)
+- [ ] `src/services/db.ts` `addTask()` method — after the INSERT exec → add `this.addActivity({ projectId: t.projectId, taskId: id, type: 'task_created', content: 'created task ' + t.title })`
+- [ ] `src/services/db.ts` `updateTask()` method — after the UPDATE exec → add `this.addActivity({ projectId: ..., taskId: id, type: 'task_updated', content: 'updated task' })` (derive projectId from a SELECT before the update if not passed)
+- [ ] `src/services/db.ts` `deleteTask()` method — before the DELETE exec → fetch the task's `projectId` with a SELECT; call `this.addActivity({ projectId, taskId: id, type: 'task_deleted', content: 'deleted a task' })`
+- [ ] `src/services/db.ts` `addComment()` method — after the INSERT → call `this.addActivity({ projectId: ..., taskId, type: 'comment_added', content: 'commented on a task' })`
+- [ ] `src/views/DashboardView.tsx` — activity feed card currently maps `activity.userId` against a deleted `users` array → after Phase 1 member sync, resolve `actorUid` against `db.getProjectMembers()` to display `displayName` + avatar
 
 ---
 
 ## Phase 2 — Quality & Reliability
 > **Goal:** Make the codebase robust enough to extend safely. Fix the architecture issues that compound with every new feature.  
-> **Target:** Sprint 2.
-
-### 🟡 Persistence — Schema Migration Safety
-
-- [ ] Add a `schema_version` key to the IndexedDB store, starting at `1`
-- [ ] Write `migrateSchema(fromVersion: number, db: any)` in `db.ts` — handles column additions gracefully
-- [ ] Increment `schema_version` on every schema change and add a corresponding migration step
-- [ ] Add a `runSql(sql: string, bind?: any[])` wrapper around `db.exec()` — catches and logs errors in development instead of silently no-oping
+> **Target:** Sprint 2 after Phase 1.
 
 ---
 
-### 🟡 Routing — Single Source of Truth
+### 🟡 Routing — Single Source of Truth for Current Project
 
-- [ ] Remove `currentProjectId` from `App.tsx` state
-- [ ] Derive `currentProject` with `useMemo` — parse `window.location.pathname` and match against the `projects` array
-- [ ] Remove the `handleRouteChange` `popstate` listener from `App.tsx`
-- [ ] Audit all `route()` calls — confirm all use slugified project names, never raw IDs
-
----
-
-### 🟡 Type Safety — Eliminate `any` in DB Row Callbacks
-
-- [ ] Define typed row tuple types for each table (e.g. `type TaskRow = [string, string, string, ...]`)
-- [ ] Replace all `callback: (r: any[]) => ...` in `db.ts` with typed row destructuring
-- [ ] Set `"strict": true` in `tsconfig.json` and fix all resulting type errors
-- [ ] Confirm `npm run lint` runs in CI to catch type regressions on every PR
+- [ ] `src/App.tsx` — `const [currentProjectId, setCurrentProjectId] = useState<string | null>(null)` declaration → remove the state declaration
+- [ ] `src/App.tsx` — `const currentProject = projects.find(p => p.id === currentProjectId) || null` → replace with `const currentProject = useMemo(() => { const match = window.location.pathname.match(/\/project\/([^/]+)/); if (!match) return projects[0] || null; return projects.find(p => slugify(p.name) === match[1]) || null; }, [projects, window.location.pathname])`
+- [ ] `src/App.tsx` — `handleRouteChange` function and `window.addEventListener('popstate', handleRouteChange)` and its cleanup → delete all three; routing is now derived from pathname
 
 ---
 
-### 🟡 Performance — Optimistic Updates in `BoardView`
+### 🟡 Persistence — Schema Versioning and Migration Safety
 
-- [ ] On drag-end, immediately update local `tasks` state without waiting for `fetchData()`
-- [ ] Call `db.updateTaskColumn()` in the background after the optimistic state update
-- [ ] On error, revert local state and show a toast notification
-- [ ] Apply the same pattern to task creation: append the new task to local state before the DB write resolves
-
----
-
-### 🟡 PWA — Proper Asset Pre-caching
-
-- [ ] Decide: configure `vite-plugin-pwa` properly **or** remove it from `package.json`
-- [ ] **If using `vite-plugin-pwa`:** add to `vite.config.ts`, configure `workbox.globPatterns` to include `**/*.{js,css,html,wasm}`, delete the hand-rolled `public/sw.js`
-- [ ] **If keeping hand-rolled SW:** add a build script that injects the Vite asset manifest into `sw.js` at build time; replace the hardcoded `CACHE_NAME = 'project-tracker-v2'` with an auto-generated hash
-- [ ] Test offline end-to-end: load the app, disable network, hard-reload — full UI must load from cache
+- [ ] `src/services/db.ts` `IndexedDBStorage` class — `private dbName = 'project_tracker_v5_tables'` → change to `'project_tracker_v6_tables'` to force a clean restore after the schema migration
+- [ ] `src/services/db.ts` after `IndexedDBStorage` class — add `const SCHEMA_VERSION = 1` constant
+- [ ] `src/services/db.ts` `persist()` method — after `writeAllTables()` call → add `await this.storage.set('schema_version', SCHEMA_VERSION)`
+- [ ] `src/services/db.ts` `init()` — before the `createTables()` call → add a version check and `migrateSchema(fromVersion)` stub that handles future column additions gracefully
+- [ ] `src/services/db.ts` — add `private runSql(sql: string, bind?: any[])` wrapper around `this.db.exec()` that catches errors and logs them with the SQL and bind values in development mode
 
 ---
 
-### 🟡 Performance — SQLite WASM Cold Start
+### 🟡 Type Safety — Eliminate `any` in DB Row Callbacks and Enable Strict Mode
 
-- [ ] Build a proper splash screen with step-by-step progress text ("Loading database…", "Restoring your data…", "Ready")
-- [ ] Move SQLite WASM initialisation into a Web Worker so the main thread stays responsive during the 300–800ms init window
-- [ ] Pre-warm the WASM module during the `LoginView` render so it is ready before the user enters the app
+- [ ] `tsconfig.json` — `"compilerOptions"` object → add `"strict": true`, `"noUnusedLocals": true`, `"noUnusedParameters": true`, `"noImplicitReturns": true`
+- [ ] `src/services/db.ts` — all `callback: (r: any[]) => ...` row callbacks → define a typed tuple per table (e.g. `type ProjectRow = [string, string, string, string, string, string, number, number, string]`) and replace `r: any[]` with the typed tuple; use named destructuring
+- [ ] `src/services/db.ts` — `addTask(t: any)`, `updateTask(id: string, u: any)`, `addProject(p: any)` signatures → replace `any` with explicit typed parameter interfaces
 
 ---
 
 ### 🟡 Code Organisation — Decompose `TaskDetailModal`
 
-- [ ] Extract `<TaskHeader />` — title, status badge, priority pill, complete button
-- [ ] Extract `<SubtaskList />` — subtask CRUD + linked progress logic
-- [ ] Extract `<CommentThread />` — comment list + add comment
-- [ ] Extract `<AssigneePanel />` — assignee pills reading from `project_members` + add/remove modal
-- [ ] Extract `<TimeTracker />` — elapsed display + start/stop button
-- [ ] Extract `<TaskMetaPanel />` — due date, priority editor, progress bar sidebar
-- [ ] Keep `TaskDetailModal` as a thin layout shell composing the above
+- [ ] `src/components/TaskDetailModal/TaskHeader.tsx` — does not exist → extract title, completion button, priority badge from `TaskDetailModal`
+- [ ] `src/components/TaskDetailModal/SubtaskList.tsx` — does not exist → extract subtask CRUD + linked progress logic
+- [ ] `src/components/TaskDetailModal/CommentThread.tsx` — does not exist → extract comment list + add comment modal
+- [ ] `src/components/TaskDetailModal/AssigneePanel.tsx` — does not exist → extract assignee pills + add assignee modal; reads `ProjectMember[]`
+- [ ] `src/components/TaskDetailModal/TimeTracker.tsx` — does not exist → extract elapsed display + start/stop button
+- [ ] `src/components/TaskDetailModal/TaskMetaPanel.tsx` — does not exist → extract due date, priority editor, progress bar sidebar
+- [ ] `src/components/TaskDetailModal.tsx` — 350-line monolith → replace body with a thin layout shell composing the six extracted sub-components
 
 ---
 
 ### 🟡 Code Organisation — Split `db.ts` into Domain Repositories
 
-- [ ] Create `src/services/repos/` directory
-- [ ] Extract project methods → `repos/projectRepo.ts`
-- [ ] Extract task methods → `repos/taskRepo.ts`
-- [ ] Extract sprint methods → `repos/sprintRepo.ts`
-- [ ] Extract member methods → `repos/memberRepo.ts`
-- [ ] Extract comment/subtask/activity methods → `repos/activityRepo.ts`
-- [ ] Keep `db.ts` as the entry point that re-exports a composed `db` object from all repos
+- [ ] `src/services/repos/projectRepo.ts` — does not exist → extract `getProjects`, `getProjectByName`, `addProject`, `updateProject`, `deleteProject`
+- [ ] `src/services/repos/taskRepo.ts` — does not exist → extract `getTasks`, `addTask`, `updateTask`, `updateTaskColumn`, `deleteTask`
+- [ ] `src/services/repos/sprintRepo.ts` — does not exist → extract `getSprints`, `addSprint`
+- [ ] `src/services/repos/memberRepo.ts` — does not exist → extract `getProjectMembers`, `addProjectMember`, `removeProjectMember`
+- [ ] `src/services/repos/activityRepo.ts` — does not exist → extract `getComments`, `addComment`, `getSubtasks`, `addSubtask`, `updateSubtask`, `deleteSubtask`, `getActivities`, `addActivity`, `startTaskTimer`, `stopTaskTimer`
+- [ ] `src/services/db.ts` — 280-line class → keep as entry point that imports all repos, composes them into a single `db` export, retains `init()`, `createTables()`, `persist()`, and `schedulePersist()`
 
 ---
 
-### 🟡 Input Validation — Prevent Runaway Data
+### 🟡 Performance — Optimistic Updates in `BoardView`
 
-- [ ] Add `maxLength={200}` to all task title inputs
-- [ ] Add `maxLength={2000}` to all description textareas
-- [ ] Add `maxLength={500}` to all comment inputs
-- [ ] Add `maxLength={100}` to project name inputs
-- [ ] Add service-layer validation in `db.addTask()` and `db.updateTask()` — trim strings and reject values exceeding limits
+- [ ] `src/views/BoardView.tsx` `handleDragEnd()` — `await db.updateTaskColumn(taskId, overId); await fetchData()` → update `tasks` state immediately with the new `columnId` before the DB write; call `db.updateTaskColumn()` in the background; on error, revert state and show a toast
+- [ ] `src/views/BoardView.tsx` `handleAddTask()` — `await db.addTask(...); await fetchData()` → append the new task optimistically to local state before the DB write resolves
 
 ---
 
-### 🟡 Security — API Key Situation
+### 🟡 PWA — Proper Asset Pre-caching
 
-- [ ] Update `.env.example` with a prominent warning: `# WARNING: VITE_* values are embedded in the browser bundle. Only use keys scoped to this app.`
-- [ ] Add a `README.md` section explaining the local-first security model and the Gemini key situation
-- [ ] Route all Gemini AI calls through the Express server (already a dependency) to keep the Gemini key server-side and off the client bundle
+- [ ] `package.json` `dependencies` — `"vite-plugin-pwa"` was removed in Phase 0 quick wins → re-add as a `devDependency` and install: `npm install -D vite-plugin-pwa`
+- [ ] `vite.config.ts` — `plugins: [preact(), tailwindcss(), wasm(), topLevelAwait()]` → add `VitePWA({ registerType: 'autoUpdate', workbox: { globPatterns: ['**/*.{js,css,html,wasm}'] } })` to the plugins array
+- [ ] `public/sw.js` — hand-rolled service worker → delete the file after confirming `vite-plugin-pwa` generates a replacement during `npm run build`
+- [ ] After migration: run `npm run build` and verify `dist/sw.js` is generated and `dist/manifest.webmanifest` contains the correct icon paths
 
 ---
 
-### 🟡 Toolchain — Linter, Formatter & Git Hooks
+### 🟡 Security — API Key Off Client Bundle
 
-The project has no automated quality gates. This section establishes the full pipeline.
+- [ ] `src/services/geminiProxy.ts` — does not exist → create an Express route in the existing server that accepts task data and proxies the Gemini API call; read `GEMINI_API_KEY` from `process.env` server-side only
+- [ ] `vite.config.ts` — `define: { 'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY) }` → remove the `define` block entirely; the key is no longer needed in the client bundle
+- [ ] `.env.example` — add `# WARNING: Never use VITE_* prefix for the Gemini key — it would embed in the browser bundle. This key is server-side only.` comment above the `GEMINI_API_KEY` line
 
-#### ESLint
+---
 
-- [ ] Install: `npm install -D eslint @typescript-eslint/parser @typescript-eslint/eslint-plugin eslint-plugin-react-hooks eslint-plugin-jsx-a11y`
-- [ ] Create `eslint.config.js` (ESLint v9 flat config) with rules for:
-  - `@typescript-eslint/recommended-type-checked` — TypeScript strict mode
-  - `react-hooks/rules-of-hooks` and `react-hooks/exhaustive-deps`
-  - `jsx-a11y/alt-text` and `jsx-a11y/interactive-supports-focus`
-  - No `console.log` in production files (warn level)
-  - No `any` type (error level)
-- [ ] Add `"lint": "eslint src --ext .ts,.tsx --max-warnings 0"` to `package.json` scripts
-- [ ] Run `npm run lint` for the first time and fix all reported errors before proceeding
+### 🟡 Input Validation
 
-#### Prettier
+- [ ] `src/components/TaskForm.tsx` — task title `<input>` element → add `maxLength={200}` attribute
+- [ ] `src/components/TaskForm.tsx` — description `<textarea>` element → add `maxLength={2000}` attribute
+- [ ] `src/components/TaskDetailModal.tsx` — subtask title input and comment textarea → add `maxLength={200}` and `maxLength={500}` respectively
+- [ ] `src/components/ProjectForm.tsx` — project name `<input>` → add `maxLength={100}` attribute
+- [ ] `src/services/db.ts` `addTask()` and `updateTask()` — after the parameter check → add trim + length guard: `if (t.title && t.title.trim().length > 200) throw new Error('Task title exceeds 200 characters')`
 
-- [ ] Install: `npm install -D prettier eslint-config-prettier eslint-plugin-prettier`
-- [ ] Create `.prettierrc`:
-  ```json
-  {
-    "semi": true,
-    "singleQuote": true,
-    "tabWidth": 2,
-    "useTabs": false,
-    "trailingComma": "es5",
-    "printWidth": 100,
-    "bracketSameLine": false,
-    "arrowParens": "always"
-  }
-  ```
-- [ ] Create `.prettierignore` excluding `dist/`, `node_modules/`, `public/sw.js`
-- [ ] Add `"format": "prettier --write src/**/*.{ts,tsx,css}"` to `package.json` scripts
-- [ ] Add `"format:check": "prettier --check src/**/*.{ts,tsx,css}"` to `package.json` scripts
-- [ ] Run `npm run format` across `src/` to apply baseline formatting — commit as a standalone formatting commit separate from any logic changes
+---
 
-#### Unified Quality Script
+### 🟡 Toolchain — Linter, Formatter, Git Hooks
 
-- [ ] Add to `package.json` scripts:
-  ```json
-  "check": "tsc --noEmit && npm run lint && npm run format:check"
-  ```
-- [ ] Confirm `npm run check` exits non-zero if any gate fails — this is the CI entry point
-
-#### Husky & lint-staged
-
-- [ ] Install: `npm install -D husky lint-staged`
-- [ ] Initialise Husky: `npx husky init`
-- [ ] Configure `.husky/pre-commit` to run `npx lint-staged`
-- [ ] Configure `lint-staged` in `package.json`:
-  ```json
-  "lint-staged": {
-    "src/**/*.{ts,tsx}": ["eslint --fix --max-warnings 0", "prettier --write"],
-    "src/**/*.css": ["prettier --write"]
-  }
-  ```
-- [ ] Test the pre-commit hook: stage a file with a lint error — the commit must be blocked
-
-#### commitlint
-
-- [ ] Install: `npm install -D @commitlint/config-conventional @commitlint/cli`
-- [ ] Create `commitlint.config.js`: `export default { extends: ['@commitlint/config-conventional'] }`
-- [ ] Configure `.husky/commit-msg`: `npx --no -- commitlint --edit $1`
-- [ ] Test the commit-msg hook: attempt a commit with a non-conventional message — must be rejected
-
-#### Conventional Commits Reference
-
-All commits from this point must follow:
-
-| Type | When to use |
-|---|---|
-| `feat:` | New feature or capability |
-| `fix:` | Bug fix |
-| `refactor:` | Code change with no behaviour change |
-| `style:` | Formatting only — no logic changes |
-| `chore:` | Tooling, deps, config — no production code |
-| `docs:` | Documentation only |
-| `perf:` | Performance improvement |
-| `test:` | Adding or fixing tests |
-| `ci:` | CI/CD configuration |
-
-Examples:
-```
-feat(auth): add Firebase adapter with decoupled AuthProvider interface
-fix(db): replace async beforeunload with visibilitychange persist trigger
-refactor(db): split into domain repositories
-chore(toolchain): add ESLint, Prettier, Husky, commitlint
-docs: add WORKFLOW.md and AUDIT_GUIDE.md
-```
-
-#### `tsconfig.json` Hardening
-
-- [ ] Set `"strict": true`
-- [ ] Set `"noUnusedLocals": true`
-- [ ] Set `"noUnusedParameters": true`
-- [ ] Set `"noImplicitReturns": true`
-- [ ] Set `"exactOptionalPropertyTypes": true`
-- [ ] Fix all type errors surfaced by the strict config before marking this task done
+- [ ] `package.json` scripts — no `lint` script beyond `tsc --noEmit` → install ESLint with TypeScript and React Hooks plugins; create `eslint.config.js`; add `"lint": "eslint src --ext .ts,.tsx --max-warnings 0"` script
+- [ ] `package.json` — no Prettier → install Prettier + `eslint-config-prettier`; create `.prettierrc`; add `"format"` and `"format:check"` scripts
+- [ ] `package.json` scripts — add `"check": "tsc --noEmit && npm run lint && npm run format:check"` unified quality gate
+- [ ] `package.json` — no Husky → install Husky + lint-staged; configure `pre-commit` hook; configure `lint-staged` to run eslint + prettier on staged `src/**/*.{ts,tsx}`
+- [ ] `package.json` — no commitlint → install `@commitlint/config-conventional`; configure `commit-msg` hook
 
 ---
 
@@ -698,76 +383,55 @@ docs: add WORKFLOW.md and AUDIT_GUIDE.md
 > **Goal:** Build the features that differentiate the product once the foundation is solid.  
 > **Target:** After Phases 0–2 are stable.
 
+---
+
 ### 🟢 Dashboard — Real Data Charts
 
-- [ ] Replace the decorative SVG wave with a real **task completion over time** line chart using the `activities` table
-- [ ] Add a **task distribution by priority** donut chart
-- [ ] Add a proper empty state when all tasks are done ("You're all caught up! 🎉")
+- [ ] `src/views/DashboardView.tsx` — decorative SVG wave path → replace with a real task completion over time line chart using the `activities` table; compute completions per day from `activities` with `type = 'task_completed'`
+- [ ] `src/views/DashboardView.tsx` — stat cards area → add a task distribution by priority donut chart (count of high/medium/low across all non-archived tasks)
+- [ ] `src/views/DashboardView.tsx` — "No Projects Found" empty state → add an additional all-tasks-complete state: when `activeTasks.length === 0 && totalTasks > 0` render `<div>You're all caught up! 🎉</div>`
 
 ---
 
 ### 🟢 Sprint Burndown Chart
 
-- [ ] Add a `SprintDetailView` showing the sprint's tasks in a filtered Kanban view
-- [ ] Implement a burndown chart: remaining tasks over sprint days
-- [ ] Add sprint velocity tracking: compare estimated vs actual completion across past sprints
+- [ ] `src/views/SprintView.tsx` — sprint card "view details" button currently calls `alert()` → navigate to a `SprintDetailView` route
+- [ ] `src/views/SprintDetailView.tsx` — does not exist → create view showing sprint tasks in a filtered Kanban + a burndown chart (remaining tasks by day over sprint duration)
+- [ ] `src/services/db.ts` or `sprintRepo.ts` — add `getSprintTasks(sprintId: string): Promise<Task[]>` querying tasks with `sprint_id = ?`
 
 ---
 
-### 🟢 AI Planning Coach (Gemini Integration)
+### 🟢 AI Planning Coach (Gemini via Server Proxy)
 
-- [ ] Add a floating "AI Assist" button to `TaskDetailModal`
-- [ ] Send task title + description to Gemini and stream back suggested subtasks
-- [ ] Add "Generate Sprint Plan" to `SprintView` — Gemini suggests which backlog tasks to pull in based on priority and due date
-- [ ] Add "Daily Standup Summary" to `DashboardView` — Gemini summarises yesterday's completions and today's in-progress tasks
-- [ ] Route all Gemini calls through the Express server to keep the API key server-side
+- [ ] `src/components/TaskDetailModal/AIAssist.tsx` — does not exist → add a floating "AI Assist" button; send task title + description to the Gemini proxy endpoint; stream back suggested subtasks
+- [ ] `src/views/SprintView.tsx` — sprint creation modal → add "Generate Sprint Plan" button that calls Gemini with current backlog task titles and priorities
+- [ ] `src/views/DashboardView.tsx` — activity area → add "Daily Standup Summary" button that calls Gemini with yesterday's completions and today's in-progress tasks
 
 ---
 
 ### 🟢 Encrypted Cloud Backup ("Zync")
 
-- [ ] Design Zync settings UI in `ProjectSettingsView`: endpoint URL, bucket/path, access key fields
-- [ ] Implement WebCrypto AES-GCM encryption of the SQLite export blob before upload
-- [ ] Implement upload to any S3-compatible endpoint — user-supplied credentials, never stored server-side
-- [ ] Implement download + decrypt + restore flow
-- [ ] Add a background sync status indicator in `Navbar`
+- [ ] `src/views/ProjectSettingsView.tsx` — after Phase 1 backup section → add Zync settings UI: endpoint URL, bucket/path, access key fields stored in `localStorage`
+- [ ] `src/services/zyncService.ts` — does not exist → implement WebCrypto AES-GCM encryption of the SQLite export blob before upload; implement upload to any S3-compatible endpoint
+- [ ] `src/services/zyncService.ts` — add download + decrypt + restore flow
+- [ ] `src/components/Navigation.tsx` `Navbar` — right side → add a background sync status indicator driven by `zyncService` last-sync timestamp
 
 ---
 
 ### 🟢 Task Dependencies
 
-- [ ] Add `blocks TEXT` and `blocked_by TEXT` columns to the `tasks` table (comma-separated task IDs)
-- [ ] Add a migration step for existing data
-- [ ] Add a Dependencies section in `TaskDetailModal` with add/remove UI
-- [ ] Show a blocked indicator on `TaskCard` when a task's blockers are not yet complete
-- [ ] Prevent moving a blocked task to "Done" until all its blockers are resolved
-
----
-
-### 🟢 Recurring Tasks
-
-- [ ] Add `recurrence_rule TEXT` column to `tasks` (e.g. `DAILY`, `WEEKLY:MON`, `MONTHLY:1`)
-- [ ] Add a recurrence picker in `TaskForm` and `TaskDetailModal`
-- [ ] Implement a scheduler that creates new task instances for overdue recurring tasks on app startup
-- [ ] Show a recurrence badge (↻) on task cards with an active rule
+- [ ] `src/services/db.ts` `createTables()` tasks table — `CREATE TABLE IF NOT EXISTS tasks (...)` statement → add `blocks TEXT DEFAULT ''` and `blocked_by TEXT DEFAULT ''` columns (comma-separated task IDs); add a schema migration step in Phase 2's `migrateSchema()`
+- [ ] `src/components/TaskDetailModal/TaskHeader.tsx` — after the priority badge → add a Dependencies section with add/remove UI
+- [ ] `src/components/TaskCard.tsx` — card body → show a 🔴 blocked indicator when `task.blockedBy` contains unresolved task IDs
+- [ ] `src/services/db.ts` `updateTaskColumn()` method — before the UPDATE → query `blocked_by` tasks; if any are not in the "Done" column, reject the move to "Done" and throw with a user-visible message
 
 ---
 
 ### 🟢 Accessibility — Full Keyboard Navigation on Kanban
 
-- [ ] Add visible focus rings to all interactive elements in `BoardView` (currently suppressed by `outline-none`)
-- [ ] Implement keyboard shortcuts: `N` = new task in focused column, `Enter` = open detail, `Delete` = delete selected task
-- [ ] Ensure dnd-kit `KeyboardSensor` announcements are wired to ARIA live regions
-- [ ] Add a keyboard shortcut reference panel accessible via `?` key
-
----
-
-### 🟢 Virtual Scrolling for Large Task Lists
-
-- [ ] Add `@tanstack/virtual` as a dependency
-- [ ] Implement windowed rendering in `BacklogView` task grid
-- [ ] Implement windowed rendering in `SprintView` task list
-- [ ] Implement windowed rendering in each `KanbanColumn` when task count exceeds 50
+- [ ] `src/views/BoardView.tsx` — all task card containers have `outline-none` → add visible focus rings: `focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2`
+- [ ] `src/views/BoardView.tsx` — add keyboard shortcuts: `N` = new task in focused column, `Enter` = open detail modal, `Delete` = delete selected task; wire to a `useKeyboard` hook
+- [ ] `src/views/BoardView.tsx` `DndContext` — `KeyboardSensor` is already registered → wire ARIA live region announcements for drag start, drag over column, drag end
 
 ---
 
@@ -775,13 +439,13 @@ docs: add WORKFLOW.md and AUDIT_GUIDE.md
 
 These have no single completion point — revisit every sprint.
 
-- [ ] **`npm run check` in CI** — the unified gate must pass on every PR before merge
-- [ ] **Integration test per new `db.ts` method** — the persistence layer has zero test coverage today
-- [ ] **Performance budget** — after each feature addition, measure board render time with 100 tasks; keep under 100ms
-- [ ] **Accessibility audit** — run Lighthouse or axe-core on each major view quarterly
-- [ ] **Bump `CACHE_NAME`** on every deploy until `vite-plugin-pwa` migration is complete
-- [ ] **Rotate the Gemini API key** if the app is deployed anywhere publicly accessible
-- [ ] **Conventional Commits discipline** — `commitlint` rejects non-conforming messages; no bypass allowed
+- [ ] **`npm run check` in CI** — the unified gate (tsc + eslint + prettier check) must pass on every PR before merge; set up once in Phase 2, enforce forever
+- [ ] **Integration test per new `db.ts` method** — the persistence layer has zero test coverage; add at minimum a happy-path test for every new public method
+- [ ] **Performance budget** — after each feature addition, measure board render time with 100 tasks; keep under 100ms on a mid-range device
+- [ ] **Accessibility audit** — run Lighthouse or axe-core on each major view every sprint
+- [ ] **Bump `CACHE_NAME`** on every deploy until `vite-plugin-pwa` migration in Phase 2 is complete
+- [ ] **Conventional Commits discipline** — `commitlint` rejects non-conforming messages after Phase 2 toolchain setup; no bypass allowed
+- [ ] **Rotate Gemini API key** if the app is deployed anywhere publicly accessible after Phase 2 proxy migration
 
 ---
 
@@ -789,10 +453,10 @@ These have no single completion point — revisit every sprint.
 
 | Phase | Total Tasks | Done | Remaining |
 |---|---|---|---|
-| Phase 0 — Stop the Bleeding | 62 | 0 | 62 |
-| Phase 1 — Core Promises | 54 | 0 | 54 |
-| Phase 2 — Quality & Reliability | 68 | 0 | 68 |
-| Phase 3 — Feature Expansion | 27 | 0 | 27 |
-| **Total** | **211** | **0** | **211** |
+| Phase 0 — Stop the Bleeding | 51 | 0 | 51 |
+| Phase 1 — Core Product Promises | 38 | 0 | 38 |
+| Phase 2 — Quality & Reliability | 41 | 0 | 41 |
+| Phase 3 — Feature Expansion | 22 | 0 | 22 |
+| **Total** | **152** | **0** | **152** |
 
-> Update the "Done" column manually as tasks are completed, or track via GitHub Issues/Projects.
+> Update the "Done" column as tasks are completed. Each `[x]` checkbox in a phase counts as one Done task.

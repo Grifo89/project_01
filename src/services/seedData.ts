@@ -1,13 +1,4 @@
-import { Project, User, Column, Task, Priority } from './db';
-
-// Note: The current logged-in user (myUserId from localStorage) 
-// will be automatically added to the project team in db.ts seed logic.
-export const SEED_USERS: Omit<User, 'id'>[] = [
-  { name: 'Sarah Chen', avatarColor: '#10b981', initials: 'SC', role: 'Lead Developer', email: 'sarah@example.com' },
-  { name: 'Marcus Smith', avatarColor: '#f59e0b', initials: 'MS', role: 'UI Designer', email: 'marcus@example.com' },
-  { name: 'Alex Rivera', avatarColor: '#1152d4', initials: 'AR', role: 'Product Manager', email: 'alex@example.com' },
-  { name: 'Emma Wilson', avatarColor: '#8b5cf6', initials: 'EW', role: 'QA Engineer', email: 'emma@example.com' }
-];
+import { Project, Column, Task, Priority } from './db';
 
 export const SEED_PROJECTS: Omit<Project, 'id' | 'createdAt'>[] = [
   {
@@ -36,75 +27,73 @@ const formatDate = (daysFromNow: number) => {
 
 export const SEED_TASKS = [
   // --- DONE COLUMN ---
-  { 
-    title: 'Brand Identity & Guidelines', 
+  {
+    title: 'Brand Identity & Guidelines',
     description: 'Create the primary color palette, typography, and logo variations.',
     tag: 'DESIGN', tagVariant: 'indigo', priority: 'high' as Priority,
     progress: 100, completed: true, columnName: 'Done',
-    dueDate: formatDate(-10), assigneeType: 'team' 
+    dueDate: formatDate(-10),
   },
-  { 
-    title: 'Core Database Schema', 
+  {
+    title: 'Core Database Schema',
     description: 'Design and implement the initial SQLite schema for projects and tasks.',
     tag: 'CORE', tagVariant: 'primary', priority: 'high' as Priority,
     progress: 100, completed: true, columnName: 'Done',
-    dueDate: formatDate(-5), assigneeType: 'me' 
+    dueDate: formatDate(-5),
   },
 
   // --- REVIEW COLUMN ---
-  { 
-    title: 'Authentication Flow UI', 
+  {
+    title: 'Authentication Flow UI',
     description: 'Review the login and signup screens for consistency with the new brand guidelines.',
     tag: 'UI', tagVariant: 'slate', priority: 'medium' as Priority,
     progress: 90, completed: false, columnName: 'Review',
-    dueDate: formatDate(-1), assigneeType: 'team' 
+    dueDate: formatDate(-1),
   },
 
   // --- IN PROGRESS COLUMN ---
-  { 
-    title: 'SQLite WASM Persistence', 
+  {
+    title: 'SQLite WASM Persistence',
     description: 'Implementing OPFS storage and IndexedDB backup layer.',
     tag: 'CORE', tagVariant: 'primary', priority: 'high' as Priority,
     progress: 65, completed: false, columnName: 'In Progress',
-    dueDate: formatDate(2), assigneeType: 'me' 
+    dueDate: formatDate(2),
   },
-  { 
-    title: 'Responsive Dashboard Charts', 
+  {
+    title: 'Responsive Dashboard Charts',
     description: 'Developing the efficiency and progress charts using SVG and Framer Motion.',
     tag: 'FRONTEND', tagVariant: 'emerald', priority: 'medium' as Priority,
     progress: 45, completed: false, columnName: 'In Progress',
-    dueDate: formatDate(4), assigneeType: 'team' 
+    dueDate: formatDate(4),
   },
 
   // --- TO DO COLUMN ---
-  { 
-    title: 'Multiple Assignee Support', 
+  {
+    title: 'Multiple Assignee Support',
     description: 'Enable tasks to have more than one team member assigned simultaneously.',
     tag: 'FEATURE', tagVariant: 'primary', priority: 'high' as Priority,
     progress: 0, completed: false, columnName: 'To Do',
-    dueDate: formatDate(7), assigneeType: 'me' 
+    dueDate: formatDate(7),
   },
-  { 
-    title: 'Project Switching Logic', 
+  {
+    title: 'Project Switching Logic',
     description: 'Add the ability to switch between different projects in the sidebar and mobile view.',
     tag: 'UX', tagVariant: 'amber', priority: 'medium' as Priority,
     progress: 0, completed: false, columnName: 'To Do',
-    dueDate: formatDate(10), assigneeType: 'team' 
+    dueDate: formatDate(10),
   },
-
-  // --- UNASSIGNED (BACKLOG) ---
-  { 
-    title: 'AI Subtask Generation', 
+  {
+    title: 'AI Subtask Generation',
     description: 'Integrate Gemini API to automatically break down large tasks into smaller subtasks.',
     tag: 'AI', tagVariant: 'indigo', priority: 'medium' as Priority,
     progress: 0, completed: false, columnName: 'To Do',
-    dueDate: formatDate(15), assigneeType: 'none' 
+    dueDate: formatDate(15),
   },
-  { 
-    title: 'Performance Optimization', 
+  {
+    title: 'Performance Optimization',
     description: 'Analyze and improve the rendering performance of the Kanban board with large datasets.',
     tag: 'CORE', tagVariant: 'slate', priority: 'low' as Priority,
     progress: 0, completed: false, columnName: 'To Do',
-    dueDate: formatDate(20), assigneeType: 'none' 
+    dueDate: formatDate(20),
   }
 ];
