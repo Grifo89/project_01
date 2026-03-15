@@ -80,7 +80,7 @@ class DatabaseService {
   private async persist() {
     if (!this.db) return;
     try {
-      const tables = ['projects', 'columns', 'users', 'project_users', 'tasks', 'subtasks', 'comments', 'activities'];
+      const tables = ['projects', 'columns', 'project_members', 'tasks', 'subtasks', 'comments', 'activities'];
       const data: Record<string, any[]> = {};
       for (const table of tables) {
         const rows: any[] = [];
@@ -110,6 +110,7 @@ class DatabaseService {
       if (Object.keys(tablesData).length > 0) {
         this.db.exec('PRAGMA foreign_keys = OFF;');
         for (const [tableName, rows] of Object.entries(tablesData)) {
+          if (tableName === 'users' || tableName === 'project_users') continue; // Skip old tables
           for (const row of rows) {
             const keys = Object.keys(row);
             const sqlCols = keys.map(k => k.replace(/[A-Z]/g, l => `_${l.toLowerCase()}`));

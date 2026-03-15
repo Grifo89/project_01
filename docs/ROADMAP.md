@@ -88,10 +88,10 @@ Before reading the task list, understand the architectural decision that shapes 
   }
   ```
 - [x] Delete the `User` interface export from `db.ts`
-- [ ] Remove `users` and `project_users` from the `persist()` table list in `db.ts`
-- [ ] Remove `users` and `project_users` from the IndexedDB restore loop in `db.init()`
-- [ ] Add `project_members` to the `persist()` table list in `db.ts`
-- [ ] Add `project_members` to the IndexedDB restore loop in `db.init()`
+- [x] Remove `users` and `project_users` from the `persist()` table list in `db.ts`
+- [x] Remove `users` and `project_users` from the IndexedDB restore loop in `db.init()`
+- [x] Add `project_members` to the `persist()` table list in `db.ts`
+- [x] Add `project_members` to the IndexedDB restore loop in `db.init()`
 
 #### Step 2 — Replace User Methods with Member Methods in `db.ts`
 
