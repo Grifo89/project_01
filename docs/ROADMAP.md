@@ -60,7 +60,7 @@ Before reading the task list, understand the architectural decision that shapes 
 #### Step 1 — Replace Tables in `db.ts`
 
 - [x] Remove the `users` table `CREATE TABLE` statement from `createTables()` in `db.ts`
-- [ ] Remove the `project_users` join table `CREATE TABLE` statement from `createTables()` in `db.ts`
+- [x] Remove the `project_users` join table `CREATE TABLE` statement from `createTables()` in `db.ts`
 - [ ] Add the `project_members` table to `createTables()` in `db.ts`:
   ```sql
   CREATE TABLE IF NOT EXISTS project_members (
