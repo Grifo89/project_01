@@ -1,8 +1,3 @@
-Updated. I've refined the **Brainstorm Mode** to explicitly state that it's a collaborative, back-and-forth chat session to flesh out ideas together.
-
-Here is the final version of your **GEMINI.md**:
-
----
 
 # GEMINI.md: Project Tracker Co-Pilot Protocol
 
