@@ -124,7 +124,17 @@ class DatabaseService {
     this.db.exec(`
       CREATE TABLE IF NOT EXISTS projects (id TEXT PRIMARY KEY, name TEXT NOT NULL, description TEXT, color TEXT, start_date TEXT, end_date TEXT, sprint_start_day INTEGER DEFAULT 1, sprint_duration_weeks INTEGER DEFAULT 2, created_at DATETIME DEFAULT CURRENT_TIMESTAMP);
       CREATE TABLE IF NOT EXISTS columns (id TEXT PRIMARY KEY, project_id TEXT NOT NULL, name TEXT NOT NULL, order_index INTEGER DEFAULT 0, is_deletable BOOLEAN DEFAULT 1, created_at DATETIME DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE);
-
+      CREATE TABLE IF NOT EXISTS project_members (
+        id            TEXT PRIMARY KEY,
+        project_id    TEXT NOT NULL,
+        auth_uid      TEXT NOT NULL,
+        display_name  TEXT NOT NULL,
+        photo_url     TEXT,
+        role          TEXT DEFAULT 'member',
+        joined_at     DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+        UNIQUE (project_id, auth_uid)
+      );
 
       CREATE TABLE IF NOT EXISTS tasks (id TEXT PRIMARY KEY, column_id TEXT NOT NULL, project_id TEXT NOT NULL, sprint_id TEXT, assignee_ids TEXT, title TEXT NOT NULL, description TEXT, tag TEXT, tag_variant TEXT, priority TEXT DEFAULT 'medium', progress INTEGER DEFAULT 0, due_date TEXT, completed BOOLEAN DEFAULT 0, is_archived BOOLEAN DEFAULT 0, order_index INTEGER DEFAULT 0, time_spent INTEGER DEFAULT 0, is_timer_running BOOLEAN DEFAULT 0, timer_started_at TEXT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP, updated_at DATETIME DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (column_id) REFERENCES columns(id) ON DELETE CASCADE, FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE);
       CREATE TABLE IF NOT EXISTS subtasks (id TEXT PRIMARY KEY, task_id TEXT NOT NULL, title TEXT NOT NULL, completed BOOLEAN DEFAULT 0, order_index INTEGER DEFAULT 0, FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE);
