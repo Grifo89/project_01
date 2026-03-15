@@ -75,7 +75,7 @@ Before reading the task list, understand the architectural decision that shapes 
     UNIQUE (project_id, auth_uid)
   );
   ```
-- [ ] Add `ProjectMember` interface export to `db.ts`:
+- [x] Add `ProjectMember` interface export to `db.ts`:
   ```ts
   export interface ProjectMember {
     id: string;
@@ -117,7 +117,7 @@ Before reading the task list, understand the architectural decision that shapes 
 - [ ] Remove `localStorage.setItem('myUserId', 'me')` from `src/main.tsx`
 - [ ] Remove `assigneeType` field from every task object in `SEED_TASKS` in `src/services/seedData.ts`
 - [ ] Remove `tAssignees` variable and `assignee_ids` bind value from the task insert loop in `seeder.ts` — tasks seed unassigned until auth provides a real UID
-- [ ] Verify seeder runs without errors after all removals: `npm run seed`
+- [x] Verify seeder runs without errors after all removals: `npm run seed`
 
 #### Step 4 — Remove `ProfileSettingsView`, Stub `TeamView`
 
