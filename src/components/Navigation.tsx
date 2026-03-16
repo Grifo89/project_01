@@ -1,14 +1,14 @@
-import { useState, useEffect } from 'preact/hooks';
+import { useState } from 'preact/hooks';
 import { Link, route } from 'preact-router';
 import { Icon } from './Icon';
-import { 
-  LayoutDashboard, ListTodo, Calendar, Settings, Plus, Search, 
-  Bell, Sun, Moon, Rocket, BarChart3, Users, HelpCircle, 
-  ChevronRight, LogOut, ChevronLeft, Trash2, MoreVertical, 
-  Layers, Inbox, X 
+import {
+  LayoutDashboard, ListTodo, Calendar, Settings, Plus, Search,
+  Bell, Sun, Moon, Rocket,
+  ChevronRight, ChevronLeft, Trash2,
+  Inbox
 } from 'lucide-preact';
 import { Avatar } from './Avatar';
-import { Project, User } from '../services/db';
+import { Project } from '../services/db';
 
 const slugify = (name: string) => name.toLowerCase().replace(/\s+/g, '_');
 
@@ -20,25 +20,21 @@ interface SidebarProps {
   onDeleteProject: (id: string) => void;
   isCollapsed: boolean;
   onToggleCollapse: () => void;
-  currentUser: User | null;
 }
 
-export const Sidebar = ({ 
-  onCreateProject, 
-  currentProject, 
-  projects, 
-  onProjectChange, 
+export const Sidebar = ({
+  onCreateProject,
+  currentProject,
+  projects,
+  onProjectChange,
   onDeleteProject,
   isCollapsed,
   onToggleCollapse,
-  currentUser
-  }: SidebarProps) => {
+}: SidebarProps) => {
   const [isProjectDropdownOpen, setIsProjectDropdownOpen] = useState(false);
   const path = window.location.pathname;
   const match = path.match(/\/project\/[^/]+\/([^/]+)/);
   const activeTab = match ? match[1] : (path === '/' ? 'dashboard' : '');
-
-  const slugify = (name: string) => name.toLowerCase().replace(/\s+/g, '_');
 
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -66,7 +62,7 @@ export const Sidebar = ({
             <Rocket className="text-white" size={20} />
           </div>
         )}
-        <button 
+        <button
           onClick={onToggleCollapse}
           className={`p-1.5 rounded-lg hover:bg-app-border transition-colors text-app-text-secondary ${isCollapsed ? 'hidden' : ''}`}
         >
@@ -76,7 +72,7 @@ export const Sidebar = ({
 
       {isCollapsed && (
         <div className="flex justify-center py-2">
-          <button 
+          <button
             onClick={onToggleCollapse}
             className="p-1.5 rounded-lg hover:bg-app-border transition-colors text-app-text-secondary"
           >
@@ -86,7 +82,7 @@ export const Sidebar = ({
       )}
 
       <div className={`px-4 mb-4 relative ${isCollapsed ? 'px-2' : ''}`}>
-        <button 
+        <button
           onClick={() => setIsProjectDropdownOpen(!isProjectDropdownOpen)}
           className={`w-full flex items-center gap-3 px-4 py-2 bg-app-background border border-app-border rounded-xl text-sm font-bold text-app-text-primary hover:border-primary/50 transition-all ${isCollapsed ? 'justify-center px-0' : ''}`}
         >
@@ -99,10 +95,7 @@ export const Sidebar = ({
             {projects.map(p => (
               <div key={p.id} className="flex items-center group">
                 <button
-                  onClick={() => {
-                    onProjectChange(p.id);
-                    setIsProjectDropdownOpen(false);
-                  }}
+                  onClick={() => { onProjectChange(p.id); setIsProjectDropdownOpen(false); }}
                   className={`flex-1 text-left px-4 py-2 text-sm hover:bg-primary/10 transition-colors ${currentProject?.id === p.id ? 'text-primary font-bold' : 'text-app-text-primary'}`}
                 >
                   <div className="flex items-center gap-2">
@@ -110,11 +103,8 @@ export const Sidebar = ({
                     <span className="truncate">{p.name}</span>
                   </div>
                 </button>
-                <button 
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onDeleteProject(p.id);
-                  }}
+                <button
+                  onClick={(e) => { e.stopPropagation(); onDeleteProject(p.id); }}
                   className="px-3 py-2 text-rose-500 opacity-0 group-hover:opacity-100 hover:bg-rose-500/10 transition-all"
                 >
                   <Trash2 size={14} />
@@ -123,10 +113,7 @@ export const Sidebar = ({
             ))}
             <div className="h-px bg-app-border my-1"></div>
             <button
-              onClick={() => {
-                onCreateProject?.();
-                setIsProjectDropdownOpen(false);
-              }}
+              onClick={() => { onCreateProject?.(); setIsProjectDropdownOpen(false); }}
               className="w-full text-left px-4 py-2 text-sm text-primary font-bold hover:bg-primary/10 transition-colors flex items-center gap-2"
             >
               <Plus size={14} />
@@ -144,17 +131,17 @@ export const Sidebar = ({
               key={item.id}
               href={href}
               className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl transition-all duration-300 group ${
-                activeTab === item.id 
-                  ? 'bg-primary/10 text-primary dark:text-blue-400 font-bold shadow-sm' 
+                activeTab === item.id
+                  ? 'bg-primary/10 text-primary dark:text-blue-400 font-bold shadow-sm'
                   : 'text-app-text-secondary hover:bg-primary/10 dark:hover:bg-primary/20 hover:text-primary/80 dark:hover:text-blue-300'
               } ${isCollapsed ? 'justify-center px-0' : ''}`}
               title={isCollapsed ? item.label : ''}
               {...({} as any)}
             >
-              <Icon 
-                icon={item.icon} 
-                size={20} 
-                className={activeTab === item.id ? 'text-primary' : 'text-app-text-secondary group-hover:text-primary transition-colors'} 
+              <Icon
+                icon={item.icon}
+                size={20}
+                className={activeTab === item.id ? 'text-primary' : 'text-app-text-secondary group-hover:text-primary transition-colors'}
               />
               {!isCollapsed && <span className="text-sm font-medium">{item.label}</span>}
             </Link>
@@ -162,30 +149,18 @@ export const Sidebar = ({
         })}
       </nav>
 
+      {/* Phase 0 placeholder — replaced with real auth identity in Phase 1 */}
       <div className="p-4 border-t border-app-border">
-        <Link 
-          href={currentProject ? `/project/${slugify(currentProject.name)}/profile` : '#'}
-          className={`bg-app-background p-3 rounded-[32px] flex items-center gap-3 hover:bg-primary/5 transition-all ${isCollapsed ? 'p-1.5 rounded-2xl justify-center' : ''}`}
-          {...({} as any)}
-        >
-          <Avatar initials={currentUser?.initials || '??'} size={isCollapsed ? "sm" : "md"} className="border-2 border-app-border" />
+        <div className={`bg-app-background p-3 rounded-[32px] flex items-center gap-3 ${isCollapsed ? 'p-1.5 rounded-2xl justify-center' : ''}`}>
           {!isCollapsed && (
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-bold text-app-text-primary truncate">{currentUser?.name || 'Guest User'}</p>
-              <p className="text-xs text-app-text-secondary truncate">{currentUser?.role || 'Member'}</p>
-            </div>
+            <p className="text-sm text-app-text-secondary">Sign in to see your profile</p>
           )}
-          {!isCollapsed && (
-            <button className="text-app-text-secondary hover:text-rose-500 transition-colors">
-              <LogOut size={20} />
-            </button>
-          )}
-        </Link>
+        </div>
       </div>
 
       {!isCollapsed && (
         <div className="p-4">
-          <button 
+          <button
             onClick={onCreateProject}
             className="w-full bg-primary text-white py-3 rounded-xl font-bold text-sm shadow-lg shadow-primary/20 hover:shadow-primary/40 transition-all flex items-center justify-center gap-2"
           >
@@ -198,20 +173,18 @@ export const Sidebar = ({
   );
 };
 
-export const Navbar = ({ 
-  onToggleTheme, 
-  isDark, 
+export const Navbar = ({
+  onToggleTheme,
+  isDark,
   currentProject,
   searchQuery,
   onSearchChange,
-  currentUser
-}: { 
-  onToggleTheme: () => void, 
-  isDark: boolean, 
-  currentProject: Project | null,
-  searchQuery: string,
-  onSearchChange: (query: string) => void,
-  currentUser: User | null
+}: {
+  onToggleTheme: () => void;
+  isDark: boolean;
+  currentProject: Project | null;
+  searchQuery: string;
+  onSearchChange: (query: string) => void;
 }) => {
   return (
     <header className="sticky top-0 z-10 bg-app-background/80 backdrop-blur-md border-b border-app-border px-4 py-4 lg:px-8">
@@ -224,9 +197,9 @@ export const Navbar = ({
           </div>
           <div className="relative max-w-md w-full hidden sm:block">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-app-text-secondary" size={18} />
-            <input 
-              type="text" 
-              placeholder="Search tasks, projects..." 
+            <input
+              type="text"
+              placeholder="Search tasks, projects..."
               value={searchQuery}
               onInput={(e) => onSearchChange((e.target as HTMLInputElement).value)}
               className="w-full pl-10 pr-4 py-2 bg-app-surface border border-app-border rounded-xl text-sm outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
@@ -235,7 +208,7 @@ export const Navbar = ({
         </div>
 
         <div className="flex items-center gap-2 md:gap-4">
-          <button 
+          <button
             onClick={onToggleTheme}
             className="p-2 rounded-2xl hover:bg-primary/10 dark:hover:bg-primary/20 transition-all duration-300"
             title="Toggle Theme"
@@ -246,35 +219,31 @@ export const Navbar = ({
             <Icon icon={Bell} className="text-app-text-secondary" />
             <span className="absolute top-2 right-2 size-2 bg-rose-500 rounded-full border-2 border-app-background"></span>
           </button>
-          
+
           <div className="h-8 w-px bg-app-border hidden md:block mx-2"></div>
-          
-          <Link 
-            href={currentProject ? `/project/${slugify(currentProject.name)}/profile` : '#'}
-            className="flex items-center gap-3 pl-2 hover:bg-primary/5 p-1 rounded-xl transition-all"
-            {...({} as any)}
-          >
+
+          {/* Phase 0 placeholder — replaced with real auth identity in Phase 1 */}
+          <div className="flex items-center gap-3 pl-2 p-1 rounded-xl">
             <div className="hidden md:block text-right">
-              <p className="text-xs font-bold text-app-text-primary">{currentUser?.name || 'Guest'}</p>
+              <p className="text-xs font-bold text-app-text-primary">Guest</p>
               <div className="flex items-center gap-1 text-[10px] text-app-text-secondary">
                 <span className="truncate max-w-[100px]">Project: {currentProject?.name || 'None'}</span>
                 <ChevronRight size={10} />
               </div>
             </div>
-            <Avatar initials={currentUser?.initials || '??'} size="sm" />
-          </Link>
+            <div className="size-6 rounded-full bg-primary/20" />
+          </div>
         </div>
       </div>
     </header>
   );
 };
 
-export const BottomNav = ({ onCreateProject, currentProject }: { onCreateProject?: () => void, currentProject: Project | null }) => {
+export const BottomNav = ({ onCreateProject, currentProject }: { onCreateProject?: () => void; currentProject: Project | null }) => {
   const path = window.location.pathname;
   const match = path.match(/\/project\/[^/]+\/([^/]+)/);
   const activeTab = match ? match[1] : (path === '/' ? 'dashboard' : '');
 
-  const slugify = (name: string) => name.toLowerCase().replace(/\s+/g, '_');
   const tabs = [
     { id: 'dashboard', label: 'Board', icon: LayoutDashboard },
     { id: 'board', label: 'Tasks', icon: ListTodo },
@@ -285,17 +254,17 @@ export const BottomNav = ({ onCreateProject, currentProject }: { onCreateProject
   return (
     <nav className="bg-app-background border-t border-app-border px-6 py-2 pb-6 flex items-center justify-between sticky bottom-0 z-20">
       {tabs.slice(0, 2).map(tab => (
-        <Link 
-          key={tab.id} 
-          href={currentProject ? `/project/${slugify(currentProject.name)}/${tab.id}` : '#'} 
-          className={`flex flex-col items-center gap-1 transition-colors ${activeTab === tab.id ? 'text-primary' : 'text-app-text-secondary'}`} 
+        <Link
+          key={tab.id}
+          href={currentProject ? `/project/${slugify(currentProject.name)}/${tab.id}` : '#'}
+          className={`flex flex-col items-center gap-1 transition-colors ${activeTab === tab.id ? 'text-primary' : 'text-app-text-secondary'}`}
           {...({} as any)}
         >
           <Icon icon={tab.icon} size={24} />
           <span className="text-[10px] font-bold uppercase tracking-tighter">{tab.label}</span>
         </Link>
       ))}
-      
+
       <div className="relative -top-6">
         <button onClick={onCreateProject} className="size-14 bg-primary rounded-full shadow-lg shadow-primary/40 flex items-center justify-center text-white border-4 border-app-background">
           <Icon icon={Plus} size={32} />
@@ -303,10 +272,10 @@ export const BottomNav = ({ onCreateProject, currentProject }: { onCreateProject
       </div>
 
       {tabs.slice(2).map(tab => (
-        <Link 
-          key={tab.id} 
-          href={currentProject ? `/project/${slugify(currentProject.name)}/${tab.id}` : '#'} 
-          className={`flex flex-col items-center gap-1 transition-colors ${activeTab === tab.id ? 'text-primary' : 'text-app-text-secondary'}`} 
+        <Link
+          key={tab.id}
+          href={currentProject ? `/project/${slugify(currentProject.name)}/${tab.id}` : '#'}
+          className={`flex flex-col items-center gap-1 transition-colors ${activeTab === tab.id ? 'text-primary' : 'text-app-text-secondary'}`}
           {...({} as any)}
         >
           <Icon icon={tab.icon} size={24} />

@@ -2,7 +2,7 @@ import { Avatar } from './Avatar';
 import { Badge } from './Badge';
 import { Card } from './Card';
 import { Icon } from './Icon';
-import { Calendar, MessageSquare, Trash2, AlertCircle, Clock, MoreVertical, Play, Square, Archive } from 'lucide-preact';
+import { Calendar, MessageSquare, Trash2, Clock, MoreVertical, Play, Square, Archive } from 'lucide-preact';
 import { Priority } from '../services/db';
 import { useState, useEffect } from 'preact/hooks';
 
@@ -14,7 +14,7 @@ interface TaskCardProps {
   dueDate?: string;
   comments?: number;
   image?: string;
-  assignees?: { src?: string; initials?: string }[];
+  assignees?: { displayName: string; photoUrl?: string }[];
   progress?: number;
   completed?: boolean;
   priority?: Priority;
@@ -102,37 +102,37 @@ export const TaskCard = ({
             )}
           </div>
           <div className="relative">
-            <button 
+            <button
               onClick={(e) => { e.stopPropagation(); setIsMenuOpen(!isMenuOpen); }}
               className="p-1 text-app-text-secondary hover:text-primary transition-colors rounded-lg hover:bg-app-background"
             >
               <MoreVertical size={16} />
             </button>
             {isMenuOpen && (
-              <div className="absolute right-0 mt-2 w-48 bg-app-surface border border-app-border rounded-xl shadow-xl z-50 py-2 overflow-hidden animate-in fade-in zoom-in-95 duration-100" onClick={(e) => e.stopPropagation()}>
+              <div className="absolute right-0 mt-2 w-48 bg-app-surface border border-app-border rounded-xl shadow-xl z-50 py-2 overflow-hidden" onClick={(e) => e.stopPropagation()}>
                 {isTimerRunning ? (
-                  <button 
+                  <button
                     onClick={() => { onStopTimer?.(); setIsMenuOpen(false); }}
                     className="w-full text-left px-4 py-2 text-sm text-rose-500 hover:bg-rose-50 flex items-center gap-2"
                   >
                     <Square size={14} /> <span>Stop Timer</span>
                   </button>
                 ) : (
-                  <button 
+                  <button
                     onClick={() => { onStartTimer?.(); setIsMenuOpen(false); }}
                     className="w-full text-left px-4 py-2 text-sm text-emerald-500 hover:bg-emerald-50 flex items-center gap-2"
                   >
                     <Play size={14} /> <span>Start Timer</span>
                   </button>
                 )}
-                <button 
+                <button
                   onClick={() => { onArchive?.(); setIsMenuOpen(false); }}
                   className="w-full text-left px-4 py-2 text-sm text-app-text-primary hover:bg-app-background flex items-center gap-2"
                 >
                   <Archive size={14} /> <span>Archive</span>
                 </button>
                 <div className="h-px bg-app-border my-1"></div>
-                <button 
+                <button
                   onClick={() => { onDelete?.(); setIsMenuOpen(false); }}
                   className="w-full text-left px-4 py-2 text-sm text-rose-500 hover:bg-rose-50 flex items-center gap-2"
                 >
@@ -145,24 +145,26 @@ export const TaskCard = ({
         <h3 className={`font-semibold text-base leading-snug text-app-text-primary ${completed ? 'line-through opacity-50' : ''}`}>
           {title}
         </h3>
-        
+
         {progress !== undefined && (
           <div className="space-y-2">
             <div className="w-full bg-slate-100 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden">
               <div className="bg-emerald-500 h-full transition-all duration-500 ease-out" style={{ width: `${progress}%` }}></div>
             </div>
             <div className="flex justify-between items-center">
-              <div className="flex -space-x-2">
-                {assignees.slice(0, 3).map((a, i) => (
-                  <Avatar key={i} {...a} size="sm" />
-                ))}
-                {assignees.length > 3 && (
-                  <div className="size-6 rounded-full bg-slate-100 border-2 border-white flex items-center justify-center text-[8px] font-bold text-slate-500">
-                    +{assignees.length - 3}
-                  </div>
-                )}
-              </div>
-              <span className="text-[10px] text-app-text-secondary font-medium">{progress}% Complete</span>
+              {assignees.length > 0 && (
+                <div className="flex -space-x-2">
+                  {assignees.slice(0, 3).map((a, i) => (
+                    <Avatar key={i} displayName={a.displayName} photoUrl={a.photoUrl} size="sm" />
+                  ))}
+                  {assignees.length > 3 && (
+                    <div className="size-6 rounded-full bg-slate-100 border-2 border-white flex items-center justify-center text-[8px] font-bold text-slate-500">
+                      +{assignees.length - 3}
+                    </div>
+                  )}
+                </div>
+              )}
+              <span className="text-[10px] text-app-text-secondary font-medium ml-auto">{progress}% Complete</span>
             </div>
           </div>
         )}
@@ -180,7 +182,7 @@ export const TaskCard = ({
               </div>
             )}
           </div>
-          
+
           {comments !== undefined && (
             <div className="flex items-center gap-1 text-[10px] font-bold text-app-text-secondary">
               <MessageSquare size={12} />

@@ -8,13 +8,13 @@
   "theme_color": "#1152d4",
   "icons": [
     {
-      "src": "https://lh3.googleusercontent.com/aida-public/AB6AXuDVwrixIEjy8xnVNJmZ3fKFBXHRZvPTThWUuROg1OndIewT_AM5OuSSzkojQQ_Vodwt6lQj0mPLC3B7lpu10TrOI7OB_sD83S0Pro4yKzlXagxMgDvCnRFnuV7xhPwoWDNvS18EH_xq4zWgsf5bO_wZTX4g_DIMQI4I9__FQ3X_LD8oAeTa8QRD5Pp5MmwEBZ4E19Vsq7XiX861mLKzbEkau682zHq5nnTwbzFo5yZ2lD6OjPlSF0Usv-T5XCs4Pkr1DqVxYMMrVT2u",
+      "src": "/icons/icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "https://lh3.googleusercontent.com/aida-public/AB6AXuDVwrixIEjy8xnVNJmZ3fKFBXHRZvPTThWUuROg1OndIewT_AM5OuSSzkojQQ_Vodwt6lQj0mPLC3B7lpu10TrOI7OB_sD83S0Pro4yKzlXagxMgDvCnRFnuV7xhPwoWDNvS18EH_xq4zWgsf5bO_wZTX4g_DIMQI4I9__FQ3X_LD8oAeTa8QRD5Pp5MmwEBZ4E19Vsq7XiX861mLKzbEkau682zHq5nnTwbzFo5yZ2lD6OjPlSF0Usv-T5XCs4Pkr1DqVxYMMrVT2u",
+      "src": "/icons/icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"

@@ -28,35 +28,28 @@ export const CalendarView = ({ currentProject }: { currentProject: Project | nul
     }
   };
 
-  useEffect(() => {
-    fetchData();
-  }, [currentProject]);
+  useEffect(() => { fetchData(); }, [currentProject]);
 
-  const handleAddTask = async (data: { title: string; description: string; tag: string; tagVariant: string; dueDate: string; priority: Priority }) => {
+  const handleAddTask = async (data: { title: string; description: string; tag: string; tagVariant: string; dueDate: string; priority: Priority; assigneeIds?: string[] }) => {
     if (!currentProject) return;
-    
-    // Get first column as default
     const columns = await db.getColumns(currentProject.id);
     if (columns.length === 0) return;
 
-    const myUserId = localStorage.getItem('myUserId');
+    const taskDueDate = data.dueDate || (selectedDate
+      ? `${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, '0')}-${String(selectedDate.getDate()).padStart(2, '0')}`
+      : '');
 
-    const newTask: Omit<Task, 'id' | 'createdAt'> = {
+    await db.addTask({
       projectId: currentProject.id,
       columnId: columns[0].id,
       title: data.title,
       description: data.description,
       tag: data.tag,
       tagVariant: data.tagVariant,
-      dueDate: data.dueDate || (selectedDate ? `${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, '0')}-${String(selectedDate.getDate()).padStart(2, '0')}` : ''),
+      dueDate: taskDueDate,
       priority: data.priority,
-      progress: 0,
-      completed: false,
-      isArchived: false,
-      orderIndex: 0,
-      assigneeId: myUserId || undefined
-    };
-    await db.addTask(newTask);
+      assigneeIds: [],   // tasks created from calendar are unassigned until Phase 1 wires auth
+    });
     fetchData();
     setIsTaskModalOpen(false);
   };
@@ -87,15 +80,12 @@ export const CalendarView = ({ currentProject }: { currentProject: Project | nul
   const monthName = currentDate.toLocaleString('default', { month: 'long' });
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
-
   const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-  
-  // Week view calculations
+
   const getStartOfWeek = (date: Date) => {
     const diff = date.getDate() - date.getDay();
     return new Date(date.getFullYear(), date.getMonth(), diff);
   };
-
   const startOfWeek = getStartOfWeek(currentDate);
   const weekDays = Array.from({ length: 7 }).map((_, i) => {
     const d = new Date(startOfWeek);
@@ -108,12 +98,16 @@ export const CalendarView = ({ currentProject }: { currentProject: Project | nul
     return tasks.filter(t => t.dueDate === dateStr);
   };
 
-  const isSameDay = (d1: Date, d2: Date) => {
-    return d1.getDate() === d2.getDate() && d1.getMonth() === d2.getMonth() && d1.getFullYear() === d2.getFullYear();
-  };
+  const isSameDay = (d1: Date, d2: Date) =>
+    d1.getDate() === d2.getDate() && d1.getMonth() === d2.getMonth() && d1.getFullYear() === d2.getFullYear();
 
+  // Loading state — fixed: was a comment stub with no return
   if (loading) {
-// ... (rest of loading check)
+    return (
+      <div className="flex-1 flex items-center justify-center">
+        <Loader2 className="animate-spin text-primary" size={40} />
+      </div>
+    );
   }
 
   const selectedDateTasks = selectedDate ? getTasksForSpecificDate(selectedDate) : [];
@@ -126,18 +120,8 @@ export const CalendarView = ({ currentProject }: { currentProject: Project | nul
           <p className="text-app-text-secondary mt-1">Schedule and track your project deadlines</p>
         </div>
         <div className="flex items-center gap-2 bg-app-surface border border-app-border rounded-2xl p-1">
-          <button 
-            onClick={() => setViewMode('month')}
-            className={`px-4 py-1.5 text-xs font-bold rounded-xl transition-all ${viewMode === 'month' ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'text-app-text-secondary hover:text-app-text-primary'}`}
-          >
-            Month
-          </button>
-          <button 
-            onClick={() => setViewMode('week')}
-            className={`px-4 py-1.5 text-xs font-bold rounded-xl transition-all ${viewMode === 'week' ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'text-app-text-secondary hover:text-app-text-primary'}`}
-          >
-            Week
-          </button>
+          <button onClick={() => setViewMode('month')} className={`px-4 py-1.5 text-xs font-bold rounded-xl transition-all ${viewMode === 'month' ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'text-app-text-secondary hover:text-app-text-primary'}`}>Month</button>
+          <button onClick={() => setViewMode('week')} className={`px-4 py-1.5 text-xs font-bold rounded-xl transition-all ${viewMode === 'week' ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'text-app-text-secondary hover:text-app-text-primary'}`}>Week</button>
         </div>
       </div>
 
@@ -148,22 +132,11 @@ export const CalendarView = ({ currentProject }: { currentProject: Project | nul
               {viewMode === 'month' ? `${monthName} ${year}` : `Week of ${weekDays[0].toLocaleDateString('default', { month: 'short', day: 'numeric' })}`}
             </h2>
             <div className="flex items-center gap-2">
-              <button 
-                onClick={prevPeriod}
-                className="size-10 flex items-center justify-center rounded-xl border border-app-border hover:bg-app-background transition-colors text-app-text-secondary hover:text-primary"
-              >
+              <button onClick={prevPeriod} className="size-10 flex items-center justify-center rounded-xl border border-app-border hover:bg-app-background transition-colors text-app-text-secondary hover:text-primary">
                 <Icon icon={ChevronLeft} size={20} />
               </button>
-              <button 
-                onClick={() => setCurrentDate(new Date())}
-                className="px-4 py-2 text-sm font-bold border border-app-border rounded-xl hover:bg-app-background transition-colors text-app-text-primary"
-              >
-                Today
-              </button>
-              <button 
-                onClick={nextPeriod}
-                className="size-10 flex items-center justify-center rounded-xl border border-app-border hover:bg-app-background transition-colors text-app-text-secondary hover:text-primary"
-              >
+              <button onClick={() => setCurrentDate(new Date())} className="px-4 py-2 text-sm font-bold border border-app-border rounded-xl hover:bg-app-background transition-colors text-app-text-primary">Today</button>
+              <button onClick={nextPeriod} className="size-10 flex items-center justify-center rounded-xl border border-app-border hover:bg-app-background transition-colors text-app-text-secondary hover:text-primary">
                 <Icon icon={ChevronRight} size={20} />
               </button>
             </div>
@@ -189,21 +162,12 @@ export const CalendarView = ({ currentProject }: { currentProject: Project | nul
                   const dateTasks = getTasksForSpecificDate(date);
                   const today = isSameDay(new Date(), date);
                   const selected = selectedDate && isSameDay(selectedDate, date);
-
                   return (
-                    <button 
-                      key={day}
-                      onClick={() => setSelectedDate(date)}
-                      className={`h-24 lg:h-32 p-2 bg-app-surface hover:bg-primary/5 transition-all flex flex-col items-start gap-1 relative group ${selected ? 'ring-2 ring-inset ring-primary z-10' : ''}`}
-                    >
-                      <span className={`size-7 flex items-center justify-center rounded-full text-sm font-bold transition-colors ${today ? 'bg-primary text-white shadow-lg shadow-primary/30' : 'text-app-text-primary group-hover:text-primary'}`}>
-                        {day}
-                      </span>
+                    <button key={day} onClick={() => setSelectedDate(date)} className={`h-24 lg:h-32 p-2 bg-app-surface hover:bg-primary/5 transition-all flex flex-col items-start gap-1 relative group ${selected ? 'ring-2 ring-inset ring-primary z-10' : ''}`}>
+                      <span className={`size-7 flex items-center justify-center rounded-full text-sm font-bold transition-colors ${today ? 'bg-primary text-white shadow-lg shadow-primary/30' : 'text-app-text-primary group-hover:text-primary'}`}>{day}</span>
                       <div className="w-full flex flex-col gap-1 mt-1 overflow-hidden">
                         {dateTasks.slice(0, 2).map(task => (
-                          <div key={task.id} className={`text-[10px] px-1.5 py-0.5 rounded-md truncate font-medium border ${task.priority === 'high' ? 'bg-rose-500/10 text-rose-500 border-rose-500/20' : task.priority === 'medium' ? 'bg-amber-500/10 text-amber-500 border-amber-500/20' : 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20'}`}>
-                            {task.title}
-                          </div>
+                          <div key={task.id} className={`text-[10px] px-1.5 py-0.5 rounded-md truncate font-medium border ${task.priority === 'high' ? 'bg-rose-500/10 text-rose-500 border-rose-500/20' : task.priority === 'medium' ? 'bg-amber-500/10 text-amber-500 border-amber-500/20' : 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20'}`}>{task.title}</div>
                         ))}
                       </div>
                     </button>
@@ -215,21 +179,12 @@ export const CalendarView = ({ currentProject }: { currentProject: Project | nul
                 const dateTasks = getTasksForSpecificDate(date);
                 const today = isSameDay(new Date(), date);
                 const selected = selectedDate && isSameDay(selectedDate, date);
-
                 return (
-                  <button 
-                    key={i}
-                    onClick={() => setSelectedDate(date)}
-                    className={`h-48 lg:h-64 p-2 bg-app-surface hover:bg-primary/5 transition-all flex flex-col items-start gap-1 relative group ${selected ? 'ring-2 ring-inset ring-primary z-10' : ''}`}
-                  >
-                    <span className={`size-7 flex items-center justify-center rounded-full text-sm font-bold transition-colors ${today ? 'bg-primary text-white shadow-lg shadow-primary/30' : 'text-app-text-primary group-hover:text-primary'}`}>
-                      {date.getDate()}
-                    </span>
+                  <button key={i} onClick={() => setSelectedDate(date)} className={`h-48 lg:h-64 p-2 bg-app-surface hover:bg-primary/5 transition-all flex flex-col items-start gap-1 relative group ${selected ? 'ring-2 ring-inset ring-primary z-10' : ''}`}>
+                    <span className={`size-7 flex items-center justify-center rounded-full text-sm font-bold transition-colors ${today ? 'bg-primary text-white shadow-lg shadow-primary/30' : 'text-app-text-primary group-hover:text-primary'}`}>{date.getDate()}</span>
                     <div className="w-full flex flex-col gap-1 mt-1 overflow-hidden">
                       {dateTasks.map(task => (
-                        <div key={task.id} className={`text-[10px] px-1.5 py-0.5 rounded-md truncate font-medium border ${task.priority === 'high' ? 'bg-rose-500/10 text-rose-500 border-rose-500/20' : task.priority === 'medium' ? 'bg-amber-500/10 text-amber-500 border-amber-500/20' : 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20'}`}>
-                          {task.title}
-                        </div>
+                        <div key={task.id} className={`text-[10px] px-1.5 py-0.5 rounded-md truncate font-medium border ${task.priority === 'high' ? 'bg-rose-500/10 text-rose-500 border-rose-500/20' : task.priority === 'medium' ? 'bg-amber-500/10 text-amber-500 border-amber-500/20' : 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20'}`}>{task.title}</div>
                       ))}
                     </div>
                   </button>
@@ -254,26 +209,16 @@ export const CalendarView = ({ currentProject }: { currentProject: Project | nul
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-1">
-                        <div className={`size-2 rounded-full ${
-                          task.priority === 'high' ? 'bg-rose-500' :
-                          task.priority === 'medium' ? 'bg-amber-500' :
-                          'bg-emerald-500'
-                        }`}></div>
+                        <div className={`size-2 rounded-full ${task.priority === 'high' ? 'bg-rose-500' : task.priority === 'medium' ? 'bg-amber-500' : 'bg-emerald-500'}`}></div>
                         <span className="text-[10px] font-bold uppercase tracking-wider text-app-text-secondary">{task.tag}</span>
                       </div>
                       <h4 className="font-bold text-app-text-primary group-hover:text-primary transition-colors">{task.title}</h4>
                       <div className="flex items-center gap-3 mt-3">
-                        <div className="flex -space-x-2">
-                          <div className="size-6 rounded-full bg-primary/20 border-2 border-app-surface flex items-center justify-center text-[10px] font-bold text-primary">JD</div>
-                        </div>
                         <span className="text-[10px] font-medium text-app-text-secondary flex items-center gap-1">
-                          <Clock size={10} /> 10:00 AM
+                          <Clock size={10} /> Due today
                         </span>
                       </div>
                     </div>
-                    <button className="text-app-text-secondary hover:text-primary transition-colors">
-                      <Plus size={18} />
-                    </button>
                   </div>
                 </Card>
               ))
@@ -288,7 +233,7 @@ export const CalendarView = ({ currentProject }: { currentProject: Project | nul
             )}
           </div>
 
-          <button 
+          <button
             onClick={() => setIsTaskModalOpen(true)}
             className="w-full py-4 bg-app-surface border border-app-border rounded-2xl text-app-text-primary font-bold hover:bg-primary/5 hover:border-primary/50 hover:text-primary transition-all flex items-center justify-center gap-2"
           >
@@ -298,14 +243,10 @@ export const CalendarView = ({ currentProject }: { currentProject: Project | nul
         </div>
       </div>
 
-      <Modal 
-        isOpen={isTaskModalOpen} 
-        onClose={() => setIsTaskModalOpen(false)} 
-        title="Schedule New Task"
-      >
-        <TaskForm 
-          onSubmit={handleAddTask} 
-          onCancel={() => setIsTaskModalOpen(false)} 
+      <Modal isOpen={isTaskModalOpen} onClose={() => setIsTaskModalOpen(false)} title="Schedule New Task">
+        <TaskForm
+          onSubmit={handleAddTask}
+          onCancel={() => setIsTaskModalOpen(false)}
           initialData={{
             dueDate: selectedDate ? `${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, '0')}-${String(selectedDate.getDate()).padStart(2, '0')}` : ''
           }}

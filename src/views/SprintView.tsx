@@ -2,7 +2,7 @@ import { useState, useEffect } from 'preact/hooks';
 import { db, Sprint, Project, Task } from '../services/db';
 import { Card } from '../components/Card';
 import { Badge } from '../components/Badge';
-import { Plus, Calendar, Clock, ChevronRight, Loader2, Play, CheckCircle2 } from 'lucide-preact';
+import { Plus, Calendar, Clock, ChevronRight, Loader2, Play } from 'lucide-preact';
 import { Modal } from '../components/Modal';
 
 export const SprintView = ({ currentProject }: { currentProject: Project | null }) => {
@@ -10,7 +10,7 @@ export const SprintView = ({ currentProject }: { currentProject: Project | null 
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  
+
   const [newName, setNewName] = useState('');
   const [newStartDate, setNewStartDate] = useState('');
   const [newEndDate, setNewEndDate] = useState('');
@@ -32,14 +32,11 @@ export const SprintView = ({ currentProject }: { currentProject: Project | null 
     }
   };
 
-  useEffect(() => {
-    fetchData();
-  }, [currentProject]);
+  useEffect(() => { fetchData(); }, [currentProject]);
 
   const handleCreateSprint = async (e: Event) => {
     e.preventDefault();
     if (!currentProject || !newName.trim()) return;
-    
     await db.addSprint({
       projectId: currentProject.id,
       name: newName,
@@ -47,7 +44,6 @@ export const SprintView = ({ currentProject }: { currentProject: Project | null 
       endDate: newEndDate,
       status: 'planned'
     });
-    
     setNewName('');
     setNewStartDate('');
     setNewEndDate('');
@@ -55,9 +51,7 @@ export const SprintView = ({ currentProject }: { currentProject: Project | null 
     fetchData();
   };
 
-  const getSprintTasks = (sprintId: string) => {
-    return tasks.filter(t => t.sprintId === sprintId);
-  };
+  const getSprintTasks = (sprintId: string) => tasks.filter(t => t.sprintId === sprintId);
 
   if (loading) {
     return (
@@ -75,7 +69,7 @@ export const SprintView = ({ currentProject }: { currentProject: Project | null 
             <h1 className="text-2xl font-bold tracking-tight text-app-text-primary">Sprints</h1>
             <p className="text-app-text-secondary text-sm mt-1">Plan and manage your project iterations.</p>
           </div>
-          <button 
+          <button
             onClick={() => setIsAddModalOpen(true)}
             className="flex items-center gap-2 px-6 py-3 bg-primary text-white rounded-2xl font-bold shadow-lg shadow-primary/20 hover:shadow-primary/40 transition-all"
           >
@@ -102,7 +96,7 @@ export const SprintView = ({ currentProject }: { currentProject: Project | null 
                       <div className="flex items-center gap-4 mt-1">
                         <div className="flex items-center gap-1 text-xs text-app-text-secondary">
                           <Clock size={14} />
-                          <span>{sprint.startDate} - {sprint.endDate}</span>
+                          <span>{sprint.startDate} — {sprint.endDate}</span>
                         </div>
                         <Badge variant={sprint.status === 'active' ? 'primary' : sprint.status === 'completed' ? 'emerald' : 'slate'}>
                           {sprint.status}
@@ -117,10 +111,7 @@ export const SprintView = ({ currentProject }: { currentProject: Project | null 
                       <span className="text-xs font-bold text-app-text-primary">{Math.round(progress)}%</span>
                     </div>
                     <div className="h-2 bg-app-background rounded-full overflow-hidden">
-                      <div 
-                        className="h-full bg-primary transition-all duration-500"
-                        style={{ width: `${progress}%` }}
-                      />
+                      <div className="h-full bg-primary transition-all duration-500" style={{ width: `${progress}%` }} />
                     </div>
                     <p className="text-[10px] text-app-text-secondary mt-2">
                       {completedTasks} of {sprintTasks.length} tasks completed
@@ -128,7 +119,7 @@ export const SprintView = ({ currentProject }: { currentProject: Project | null 
                   </div>
 
                   <div className="flex items-center gap-2">
-                    <button 
+                    <button
                       onClick={() => alert(`Viewing details for ${sprint.name}`)}
                       className="p-3 text-app-text-secondary hover:bg-app-background rounded-xl transition-all"
                     >
@@ -149,7 +140,7 @@ export const SprintView = ({ currentProject }: { currentProject: Project | null 
               <p className="text-app-text-secondary max-w-sm mb-8">
                 Break your project into manageable time-boxed iterations to track progress more effectively.
               </p>
-              <button 
+              <button
                 onClick={() => setIsAddModalOpen(true)}
                 className="px-8 py-3 bg-primary text-white rounded-2xl font-bold shadow-lg shadow-primary/20 hover:shadow-primary/40 transition-all"
               >
@@ -160,15 +151,11 @@ export const SprintView = ({ currentProject }: { currentProject: Project | null 
         </div>
       </div>
 
-      <Modal 
-        isOpen={isAddModalOpen} 
-        onClose={() => setIsAddModalOpen(false)} 
-        title="Create New Sprint"
-      >
+      <Modal isOpen={isAddModalOpen} onClose={() => setIsAddModalOpen(false)} title="Create New Sprint">
         <form onSubmit={handleCreateSprint} className="space-y-6">
           <div className="space-y-2">
             <label className="text-sm font-bold text-app-text-secondary uppercase tracking-widest">Sprint Name</label>
-            <input 
+            <input
               autoFocus
               type="text"
               value={newName}
@@ -181,39 +168,16 @@ export const SprintView = ({ currentProject }: { currentProject: Project | null 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <label className="text-sm font-bold text-app-text-secondary uppercase tracking-widest">Start Date</label>
-              <input 
-                type="date"
-                value={newStartDate}
-                onInput={(e) => setNewStartDate((e.target as HTMLInputElement).value)}
-                className="w-full px-4 py-3 bg-app-background border border-app-border rounded-2xl text-app-text-primary focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
-                required
-              />
+              <input type="date" value={newStartDate} onInput={(e) => setNewStartDate((e.target as HTMLInputElement).value)} className="w-full px-4 py-3 bg-app-background border border-app-border rounded-2xl text-app-text-primary focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all" required />
             </div>
             <div className="space-y-2">
               <label className="text-sm font-bold text-app-text-secondary uppercase tracking-widest">End Date</label>
-              <input 
-                type="date"
-                value={newEndDate}
-                onInput={(e) => setNewEndDate((e.target as HTMLInputElement).value)}
-                className="w-full px-4 py-3 bg-app-background border border-app-border rounded-2xl text-app-text-primary focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
-                required
-              />
+              <input type="date" value={newEndDate} onInput={(e) => setNewEndDate((e.target as HTMLInputElement).value)} className="w-full px-4 py-3 bg-app-background border border-app-border rounded-2xl text-app-text-primary focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all" required />
             </div>
           </div>
           <div className="flex gap-3 pt-4">
-            <button 
-              type="button"
-              onClick={() => setIsAddModalOpen(false)}
-              className="flex-1 px-4 py-3 bg-app-background border border-app-border rounded-2xl text-sm font-bold text-app-text-secondary hover:bg-app-border transition-all"
-            >
-              Cancel
-            </button>
-            <button 
-              type="submit"
-              className="flex-1 px-4 py-3 bg-primary text-white rounded-2xl text-sm font-bold shadow-lg shadow-primary/20 hover:shadow-primary/40 transition-all"
-            >
-              Create Sprint
-            </button>
+            <button type="button" onClick={() => setIsAddModalOpen(false)} className="flex-1 px-4 py-3 bg-app-background border border-app-border rounded-2xl text-sm font-bold text-app-text-secondary hover:bg-app-border transition-all">Cancel</button>
+            <button type="submit" className="flex-1 px-4 py-3 bg-primary text-white rounded-2xl text-sm font-bold shadow-lg shadow-primary/20 hover:shadow-primary/40 transition-all">Create Sprint</button>
           </div>
         </form>
       </Modal>

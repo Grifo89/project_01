@@ -27,8 +27,8 @@
 
 The `addProject()` and `manualSeed()` methods still reference `project_users` and `users`, which no longer exist in the schema. Both throw a SQLite "no such table" error at runtime.
 
-- [ ] `src/services/db.ts` `addProject()` method — `INSERT INTO project_users (project_id, user_id, role)` block → remove the entire block (lines containing `myId` and the `project_users` INSERT); project membership will be established in Phase 1 via `addProjectMember()`
-- [ ] `src/services/db.ts` `manualSeed()` method — `DELETE FROM project_users; DELETE FROM projects; DELETE FROM users;` exec string → remove `DELETE FROM project_users;` and `DELETE FROM users;` from the string, keep only `DELETE FROM columns; DELETE FROM tasks; DELETE FROM activities; DELETE FROM subtasks; DELETE FROM comments; DELETE FROM project_members;`
+- [x] `src/services/db.ts` `addProject()` method — `INSERT INTO project_users (project_id, user_id, role)` block → remove the entire block (lines containing `myId` and the `project_users` INSERT); project membership will be established in Phase 1 via `addProjectMember()`
+- [x] `src/services/db.ts` `manualSeed()` method — `DELETE FROM project_users; DELETE FROM projects; DELETE FROM users;` exec string → remove `DELETE FROM project_users;` and `DELETE FROM users;` from the string, keep only `DELETE FROM columns; DELETE FROM tasks; DELETE FROM activities; DELETE FROM subtasks; DELETE FROM comments; DELETE FROM project_members;`
 
 ---
 
@@ -36,11 +36,11 @@ The `addProject()` and `manualSeed()` methods still reference `project_users` an
 
 `SprintView` imports `Sprint` from `db.ts` (does not exist) and calls `db.getSprints()` and `db.addSprint()` (do not exist). The view crashes on load.
 
-- [ ] `src/services/db.ts` after the `ProjectMember` interface — add `export interface Sprint { id: string; projectId: string; name: string; startDate: string; endDate: string; status: 'planned' | 'active' | 'completed' }` 
-- [ ] `src/services/db.ts` after the `addActivity()` method — add `async getSprints(projectId: string): Promise<Sprint[]>` querying `SELECT * FROM sprints WHERE project_id = ? ORDER BY start_date ASC`
-- [ ] `src/services/db.ts` after `getSprints()` — add `async addSprint(sprint: Omit<Sprint, 'id'>): Promise<string>` inserting into the `sprints` table with a generated id
-- [ ] `src/services/db.ts` `persist()` tables array — `['projects', 'columns', 'project_members', 'tasks', ...]` → add `'sprints'` to the array
-- [ ] `src/services/db.ts` `init()` restore loop — add `'sprints'` to the tables iterated when restoring from IndexedDB
+- [x] `src/services/db.ts` after the `ProjectMember` interface — add `export interface Sprint { id: string; projectId: string; name: string; startDate: string; endDate: string; status: 'planned' | 'active' | 'completed' }` 
+- [x] `src/services/db.ts` after the `addActivity()` method — add `async getSprints(projectId: string): Promise<Sprint[]>` querying `SELECT * FROM sprints WHERE project_id = ? ORDER BY start_date ASC`
+- [x] `src/services/db.ts` after `getSprints()` — add `async addSprint(sprint: Omit<Sprint, 'id'>): Promise<string>` inserting into the `sprints` table with a generated id
+- [x] `src/services/db.ts` `persist()` tables array — `['projects', 'columns', 'project_members', 'tasks', ...]` → add `'sprints'` to the array
+- [x] `src/services/db.ts` `init()` restore loop — add `'sprints'` to the tables iterated when restoring from IndexedDB
 
 ---
 
@@ -48,14 +48,14 @@ The `addProject()` and `manualSeed()` methods still reference `project_users` an
 
 `seeder.ts` inserts into `users` and `project_users` (both deleted). On a fresh install `performSeed()` is called during `db.init()`, throws, and leaves the app with no data.
 
-- [ ] `src/services/seedData.ts` — `export const SEED_USERS` array and its `User` type import → delete the entire `SEED_USERS` export and the `User` import at the top of the file
-- [ ] `src/services/seedData.ts` — every object in `SEED_TASKS` has `assigneeType: 'me' | 'team' | 'none'` field → remove `assigneeType` from all 9 task objects in the array
-- [ ] `src/services/seeder.ts` — `import { SEED_USERS, ... }` line → remove `SEED_USERS` from the import destructure
-- [ ] `src/services/seeder.ts` — `INSERT OR IGNORE INTO users ...` exec block and `INSERT INTO project_users ...` exec block → delete both blocks entirely
-- [ ] `src/services/seeder.ts` — `const otherUserIds: string[] = []` variable and all code that builds or iterates it → delete the variable declaration and the `for (const u of SEED_USERS)` loop
-- [ ] `src/services/seeder.ts` — `const myUserId = localStorage.getItem('myUserId') || 'me'` and the `INSERT OR IGNORE INTO users` "Me" bootstrap block → delete both lines/block
-- [ ] `src/services/seeder.ts` — `let tAssignees: string[] = []` and the `if (t.assigneeType === 'me')` / `else if` block → delete; replace `tAssignees.join(',')` in the task INSERT bind with `''` (empty string)
-- [ ] `src/main.tsx` — `if (!localStorage.getItem('myUserId')) { localStorage.setItem('myUserId', 'me'); }` block → delete the entire if block
+- [x] `src/services/seedData.ts` — `export const SEED_USERS` array and its `User` type import → delete the entire `SEED_USERS` export and the `User` import at the top of the file
+- [x] `src/services/seedData.ts` — every object in `SEED_TASKS` has `assigneeType: 'me' | 'team' | 'none'` field → remove `assigneeType` from all 9 task objects in the array
+- [x] `src/services/seeder.ts` — `import { SEED_USERS, ... }` line → remove `SEED_USERS` from the import destructure
+- [x] `src/services/seeder.ts` — `INSERT OR IGNORE INTO users ...` exec block and `INSERT INTO project_users ...` exec block → delete both blocks entirely
+- [x] `src/services/seeder.ts` — `const otherUserIds: string[] = []` variable and all code that builds or iterates it → delete the variable declaration and the `for (const u of SEED_USERS)` loop
+- [x] `src/services/seeder.ts` — `const myUserId = localStorage.getItem('myUserId') || 'me'` and the `INSERT OR IGNORE INTO users` "Me" bootstrap block → delete both lines/block
+- [x] `src/services/seeder.ts` — `let tAssignees: string[] = []` and the `if (t.assigneeType === 'me')` / `else if` block → delete; replace `tAssignees.join(',')` in the task INSERT bind with `''` (empty string)
+- [x] `src/main.tsx` — `if (!localStorage.getItem('myUserId')) { localStorage.setItem('myUserId', 'me'); }` block → delete the entire if block
 
 ---
 
@@ -63,12 +63,12 @@ The `addProject()` and `manualSeed()` methods still reference `project_users` an
 
 `App.tsx` imports the deleted `User` type, calls the deleted `db.getUsers()`, and passes a broken `currentUser: User | null` state to `Sidebar` and `Navbar`. The entire nav identity display is non-functional.
 
-- [ ] `src/App.tsx` — `import { db, Project, User } from './services/db'` → remove `User` from the import; change to `import { db, Project } from './services/db'`
-- [ ] `src/App.tsx` — `const [currentUser, setCurrentUser] = useState<User | null>(null)` state declaration → delete the state declaration
-- [ ] `src/App.tsx` — `const refreshUser = async () => { ... }` function (all ~10 lines) → delete the entire function
-- [ ] `src/App.tsx` — `await refreshUser()` call inside `initDb()` → delete this line
-- [ ] `src/App.tsx` — `const handleProfileUpdate = () => refreshUser()` and `window.addEventListener('profileUpdated', handleProfileUpdate)` and its cleanup → delete all three lines
-- [ ] `src/App.tsx` — `currentUser={currentUser}` prop on `<Sidebar>` and `<Navbar>` → remove the prop from both JSX elements
+- [x] `src/App.tsx` — `import { db, Project, User } from './services/db'` → remove `User` from the import; change to `import { db, Project } from './services/db'`
+- [x] `src/App.tsx` — `const [currentUser, setCurrentUser] = useState<User | null>(null)` state declaration → delete the state declaration
+- [x] `src/App.tsx` — `const refreshUser = async () => { ... }` function (all ~10 lines) → delete the entire function
+- [x] `src/App.tsx` — `await refreshUser()` call inside `initDb()` → delete this line
+- [x] `src/App.tsx` — `const handleProfileUpdate = () => refreshUser()` and `window.addEventListener('profileUpdated', handleProfileUpdate)` and its cleanup → delete all three lines
+- [x] `src/App.tsx` — `currentUser={currentUser}` prop on `<Sidebar>` and `<Navbar>` → remove the prop from both JSX elements
 
 ---
 
@@ -76,10 +76,10 @@ The `addProject()` and `manualSeed()` methods still reference `project_users` an
 
 `Navigation.tsx` imports the deleted `User` type and uses it in `SidebarProps` and the `Navbar` function signature. Both components crash to TypeScript errors and render broken identity sections.
 
-- [ ] `src/components/Navigation.tsx` line ~5 — `import { Project, User } from '../services/db'` → remove `User` from the import; change to `import { Project } from '../services/db'`
-- [ ] `src/components/Navigation.tsx` `SidebarProps` interface — `currentUser: User | null` field → replace with `ownerName?: string` and `ownerPhotoUrl?: string`
-- [ ] `src/components/Navigation.tsx` `Sidebar` component body — avatar/name block in the footer that reads `currentUser?.initials` and `currentUser?.name` → replace with `<p className="text-sm text-app-text-secondary">Sign in to see your profile</p>` static placeholder
-- [ ] `src/components/Navigation.tsx` `Navbar` function signature — `currentUser: User | null` parameter → remove; remove all `currentUser?.` references in the Navbar body; replace the avatar with `<div className="size-6 rounded-full bg-primary/20" />`
+- [x] `src/components/Navigation.tsx` line ~5 — `import { Project, User } from '../services/db'` → remove `User` from the import; change to `import { Project } from '../services/db'`
+- [x] `src/components/Navigation.tsx` `SidebarProps` interface — `currentUser: User | null` field → replace with `ownerName?: string` and `ownerPhotoUrl?: string`
+- [x] `src/components/Navigation.tsx` `Sidebar` component body — avatar/name block in the footer that reads `currentUser?.initials` and `currentUser?.name` → replace with `<p className="text-sm text-app-text-secondary">Sign in to see your profile</p>` static placeholder
+- [x] `src/components/Navigation.tsx` `Navbar` function signature — `currentUser: User | null` parameter → remove; remove all `currentUser?.` references in the Navbar body; replace the avatar with `<div className="size-6 rounded-full bg-primary/20" />`
 
 ---
 
@@ -87,13 +87,13 @@ The `addProject()` and `manualSeed()` methods still reference `project_users` an
 
 Five views and one component call methods deleted in the db refactor. Each throws an unhandled rejection on mount.
 
-- [ ] `src/views/BacklogView.tsx` line ~19 — `db.getProjectTeam(currentProject.id)` in `fetchData()` → replace with `db.getProjectMembers(currentProject.id)`; update `setUsers` state type from `User[]` to `ProjectMember[]`; update the `User` import to `ProjectMember`
-- [ ] `src/views/BoardView.tsx` line ~24 — `db.getProjectTeam(currentProject.id)` in `fetchData()` → replace with `db.getProjectMembers(currentProject.id)`; update `users` state type from `User[]` to `ProjectMember[]`; update all `User` imports to `ProjectMember`
-- [ ] `src/views/DashboardView.tsx` line ~45 — `db.getUsers()` in `fetchData()` → remove this call and remove `setUsers` / `users` state entirely; remove the `User` import; the activity feed avatar currently maps `activity.userId` against `users` — replace with a static `<div className="size-6 rounded-full bg-primary/20" />` placeholder until Phase 1 wires real member data
-- [ ] `src/components/TaskDetailModal.tsx` line ~78 — `db.getProjectTeam(task.projectId)` in `fetchData()` → replace with `db.getProjectMembers(task.projectId)`; update `team` state type from `User[]` to `ProjectMember[]`; update all avatar renders from `u.initials`/`u.avatarUrl` to `m.displayName`/`m.photoUrl`; remove `User` import, add `ProjectMember` import
-- [ ] `src/views/TeamView.tsx` — entire component body calls `db.getProjectTeam()`, `db.getUsers()`, `db.addUser()`, `db.addUserToProject()`, `db.removeUserFromProject()` → gut the component; replace body with `<div className="flex-1 flex items-center justify-center p-10"><p className="text-app-text-secondary">Team management available after sign-in.</p></div>`; keep the file
-- [ ] `src/views/ProfileSettingsView.tsx` — entire component calls `db.getUsers()`, `db.addUser()`, `db.updateUser()` → gut the component; replace body with `<div className="flex-1 flex items-center justify-center p-10"><p className="text-app-text-secondary">Profile available after sign-in.</p></div>`; keep the file
-- [ ] `src/views/ProjectSettingsView.tsx` — `fetchTeam()` function and all code that calls `db.getProjectTeam()`, `db.getUsers()`, `db.addUserToProject()`, `db.removeUserFromProject()`, `db.deleteUser()` → remove the entire Team Management UI section (member grid, modals, `isAddUserModalOpen`, `isCreateUserModalOpen`, `team`, `allUsers` state, `fetchTeam`, `handleAddUser`, `handleRemoveUser`, `handleCreateUser`, `handleDeleteUserGlobally`); keep General Information, Visual Identity, Sprint Configuration sections
+- [x] `src/views/BacklogView.tsx` line ~19 — `db.getProjectTeam(currentProject.id)` in `fetchData()` → replace with `db.getProjectMembers(currentProject.id)`; update `setUsers` state type from `User[]` to `ProjectMember[]`; update the `User` import to `ProjectMember`
+- [x] `src/views/BoardView.tsx` line ~24 — `db.getProjectTeam(currentProject.id)` in `fetchData()` → replace with `db.getProjectMembers(currentProject.id)`; update `users` state type from `User[]` to `ProjectMember[]`; update all `User` imports to `ProjectMember`
+- [x] `src/views/DashboardView.tsx` line ~45 — `db.getUsers()` in `fetchData()` → remove this call and remove `setUsers` / `users` state entirely; remove the `User` import; the activity feed avatar currently maps `activity.userId` against `users` — replace with a static `<div className="size-6 rounded-full bg-primary/20" />` placeholder until Phase 1 wires real member data
+- [x] `src/components/TaskDetailModal.tsx` line ~78 — `db.getProjectTeam(task.projectId)` in `fetchData()` → replace with `db.getProjectMembers(task.projectId)`; update `team` state type from `User[]` to `ProjectMember[]`; update all avatar renders from `u.initials`/`u.avatarUrl` to `m.displayName`/`m.photoUrl`; remove `User` import, add `ProjectMember` import
+- [x] `src/views/TeamView.tsx` — entire component body calls `db.getProjectTeam()`, `db.getUsers()`, `db.addUser()`, `db.addUserToProject()`, `db.removeUserFromProject()` → gut the component; replace body with `<div className="flex-1 flex items-center justify-center p-10"><p className="text-app-text-secondary">Team management available after sign-in.</p></div>`; keep the file
+- [x] `src/views/ProfileSettingsView.tsx` — entire component calls `db.getUsers()`, `db.addUser()`, `db.updateUser()` → gut the component; replace body with `<div className="flex-1 flex items-center justify-center p-10"><p className="text-app-text-secondary">Profile available after sign-in.</p></div>`; keep the file
+- [x] `src/views/ProjectSettingsView.tsx` — `fetchTeam()` function and all code that calls `db.getProjectTeam()`, `db.getUsers()`, `db.addUserToProject()`, `db.removeUserFromProject()`, `db.deleteUser()` → remove the entire Team Management UI section (member grid, modals, `isAddUserModalOpen`, `isCreateUserModalOpen`, `team`, `allUsers` state, `fetchTeam`, `handleAddUser`, `handleRemoveUser`, `handleCreateUser`, `handleDeleteUserGlobally`); keep General Information, Visual Identity, Sprint Configuration sections
 
 ---
 
@@ -101,10 +101,10 @@ Five views and one component call methods deleted in the db refactor. Each throw
 
 `TaskForm` accepts `users?: User[]` which references the deleted type. `BoardView` passes `usersData` (now `ProjectMember[]`) as `users` to `TaskForm`, causing a type mismatch.
 
-- [ ] `src/components/TaskForm.tsx` — `import { Priority, User } from '../services/db'` → remove `User` from import; change to `import { Priority, ProjectMember } from '../services/db'`
-- [ ] `src/components/TaskForm.tsx` `TaskFormProps` interface — `users?: User[]` → change to `users?: ProjectMember[]`
-- [ ] `src/components/TaskForm.tsx` — avatar pill in the assignees section reads `u.initials`/`u.avatarUrl` → replace with `u.displayName`/`u.photoUrl`; update `<Avatar>` call to pass `displayName={u.displayName}` and `photoUrl={u.photoUrl}`
-- [ ] `src/views/BoardView.tsx` — `usersData` returned by `db.getProjectMembers()` now typed `ProjectMember[]`; the `users` prop passed to `<TaskForm>` must match → verify the prop type aligns after the `TaskForm` change above; no code change needed if types are consistent
+- [x] `src/components/TaskForm.tsx` — `import { Priority, User } from '../services/db'` → remove `User` from import; change to `import { Priority, ProjectMember } from '../services/db'`
+- [x] `src/components/TaskForm.tsx` `TaskFormProps` interface — `users?: User[]` → change to `users?: ProjectMember[]`
+- [x] `src/components/TaskForm.tsx` — avatar pill in the assignees section reads `u.initials`/`u.avatarUrl` → replace with `u.displayName`/`u.photoUrl`; update `<Avatar>` call to pass `displayName={u.displayName}` and `photoUrl={u.photoUrl}`
+- [x] `src/views/BoardView.tsx` — `usersData` returned by `db.getProjectMembers()` now typed `ProjectMember[]`; the `users` prop passed to `<TaskForm>` must match → verify the prop type aligns after the `TaskForm` change above; no code change needed if types are consistent
 
 ---
 
@@ -112,21 +112,21 @@ Five views and one component call methods deleted in the db refactor. Each throw
 
 `Avatar.tsx` uses `initials` and `src` props, tightly coupling it to the old `User` model. All call sites need updating for the new `displayName`/`photoUrl` shape from `ProjectMember`.
 
-- [ ] `src/components/Avatar.tsx` `AvatarProps` interface — `src?: string` and `initials?: string` → replace with `displayName: string` and `photoUrl?: string`
-- [ ] `src/components/Avatar.tsx` render body — `{src ? <img ...> : <span>{initials}</span>}` → derive initials internally: `const initials = displayName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)`; render `{photoUrl ? <img src={photoUrl} ...> : <span>{initials}</span>}`
-- [ ] `src/components/TaskCard.tsx` — `assignees?: { src?: string; initials?: string }[]` prop type → change to `assignees?: { displayName: string; photoUrl?: string }[]`; update the avatar stack render to pass `displayName` and `photoUrl`
-- [ ] `src/views/BoardView.tsx` `SortableTaskCard` — `assignees` mapped as `{ initials: u.initials, src: u.avatarUrl }` → change to `{ displayName: u.displayName, photoUrl: u.photoUrl ?? undefined }`
-- [ ] `src/components/TaskDetailModal.tsx` — all `<Avatar initials={...} src={...}>` calls → change to `<Avatar displayName={...} photoUrl={...}>`
-- [ ] `src/views/StorybookView.tsx` — `<Avatar initials="JD" />` and `<Avatar initials="AS" size="lg" />` etc. → change to `<Avatar displayName="John Doe" />` etc.
+- [x] `src/components/Avatar.tsx` `AvatarProps` interface — `src?: string` and `initials?: string` → replace with `displayName: string` and `photoUrl?: string`
+- [x] `src/components/Avatar.tsx` render body — `{src ? <img ...> : <span>{initials}</span>}` → derive initials internally: `const initials = displayName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)`; render `{photoUrl ? <img src={photoUrl} ...> : <span>{initials}</span>}`
+- [x] `src/components/TaskCard.tsx` — `assignees?: { src?: string; initials?: string }[]` prop type → change to `assignees?: { displayName: string; photoUrl?: string }[]`; update the avatar stack render to pass `displayName` and `photoUrl`
+- [x] `src/views/BoardView.tsx` `SortableTaskCard` — `assignees` mapped as `{ initials: u.initials, src: u.avatarUrl }` → change to `{ displayName: u.displayName, photoUrl: u.photoUrl ?? undefined }`
+- [x] `src/components/TaskDetailModal.tsx` — all `<Avatar initials={...} src={...}>` calls → change to `<Avatar displayName={...} photoUrl={...}>`
+- [x] `src/views/StorybookView.tsx` — `<Avatar initials="JD" />` and `<Avatar initials="AS" size="lg" />` etc. → change to `<Avatar displayName="John Doe" />` etc.
 
 ---
 
 ### 🔴 Bug Fixes — Broken View Logic
 
-- [ ] `src/views/CalendarView.tsx` `handleAddTask()` object literal — `assigneeId: myUserId || undefined` field (singular, non-existent on `Task`) → remove the `assigneeId` field entirely; tasks created from calendar will be unassigned
-- [ ] `src/views/CalendarView.tsx` lines ~95–98 — `if (loading) { // ... (rest of loading check) }` → replace the comment stub body with `return <div className="flex-1 flex items-center justify-center"><Loader2 className="animate-spin text-primary" size={40} /></div>;`
-- [ ] `src/views/BoardView.tsx` `SortableTaskCard` `<TaskCard>` JSX — `onDelete` and `onArchive` props are missing → add `onDelete={async (e) => { e.stopPropagation(); await db.deleteTask(task.id); fetchData(); }}` and `onArchive={async (e) => { e.stopPropagation(); await db.updateTask(task.id, { isArchived: true }); fetchData(); }}`; pass `fetchData` as a prop or lift it
-- [ ] `src/views/DashboardView.tsx` line ~145 — `route('/project/${currentProject.id}/board')` → replace `currentProject.id` with `slugify(currentProject.name)`; add `const slugify = (name: string) => name.toLowerCase().replace(/\s+/g, '_')` if not already in scope
+- [x] `src/views/CalendarView.tsx` `handleAddTask()` object literal — `assigneeId: myUserId || undefined` field (singular, non-existent on `Task`) → remove the `assigneeId` field entirely; tasks created from calendar will be unassigned
+- [x] `src/views/CalendarView.tsx` lines ~95–98 — `if (loading) { // ... (rest of loading check) }` → replace the comment stub body with `return <div className="flex-1 flex items-center justify-center"><Loader2 className="animate-spin text-primary" size={40} /></div>;`
+- [x] `src/views/BoardView.tsx` `SortableTaskCard` `<TaskCard>` JSX — `onDelete` and `onArchive` props are missing → add `onDelete={async (e) => { e.stopPropagation(); await db.deleteTask(task.id); fetchData(); }}` and `onArchive={async (e) => { e.stopPropagation(); await db.updateTask(task.id, { isArchived: true }); fetchData(); }}`; pass `fetchData` as a prop or lift it
+- [x] `src/views/DashboardView.tsx` line ~145 — `route('/project/${currentProject.id}/board')` → replace `currentProject.id` with `slugify(currentProject.name)`; add `const slugify = (name: string) => name.toLowerCase().replace(/\s+/g, '_')` if not already in scope
 
 ---
 
@@ -134,10 +134,10 @@ Five views and one component call methods deleted in the db refactor. Each throw
 
 `beforeunload` is called with an async `persist()` that the browser does not await. Data written in the last 2 seconds before tab close is silently lost.
 
-- [ ] `src/services/db.ts` `init()` — `window.addEventListener('beforeunload', () => this.persist())` → add before it: `document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden' && this.isDirty) this.persist(); });`; keep the `beforeunload` listener as a secondary fire-and-hope fallback
-- [ ] `src/services/db.ts` `DatabaseService` class — add `private isDirty = false` field after `private persistTimeout`
-- [ ] `src/services/db.ts` `schedulePersist()` method — `if (this.persistTimeout) clearTimeout(...)` line → add `this.isDirty = true;` before the timeout assignment
-- [ ] `src/services/db.ts` `persist()` method — `await this.storage.writeAllTables(data)` call → add `this.isDirty = false;` on the line immediately after
+- [x] `src/services/db.ts` `init()` — `window.addEventListener('beforeunload', () => this.persist())` → add before it: `document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden' && this.isDirty) this.persist(); });`; keep the `beforeunload` listener as a secondary fire-and-hope fallback
+- [x] `src/services/db.ts` `DatabaseService` class — add `private isDirty = false` field after `private persistTimeout`
+- [x] `src/services/db.ts` `schedulePersist()` method — `if (this.persistTimeout) clearTimeout(...)` line → add `this.isDirty = true;` before the timeout assignment
+- [x] `src/services/db.ts` `persist()` method — `await this.storage.writeAllTables(data)` call → add `this.isDirty = false;` on the line immediately after
 
 ---
 
@@ -145,19 +145,19 @@ Five views and one component call methods deleted in the db refactor. Each throw
 
 Both PWA icons reference an external Google CDN URL. The service worker does not cache these. Offline installs fail.
 
-- [ ] `public/manifest.json` — both `"src"` fields pointing to `lh3.googleusercontent.com` → change first to `/icons/icon-192.png` and second to `/icons/icon-512.png`; download or create placeholder icons and save to `public/icons/` directory
-- [ ] `index.html` — `<link rel="apple-touch-icon" href="https://lh3.googleusercontent.com/...">` → change `href` to `/icons/icon-192.png`
+- [x] `public/manifest.json` — both `"src"` fields pointing to `lh3.googleusercontent.com` → change first to `/icons/icon-192.png` and second to `/icons/icon-512.png`; download or create placeholder icons and save to `public/icons/` directory
+- [x] `index.html` — `<link rel="apple-touch-icon" href="https://lh3.googleusercontent.com/...">` → change `href` to `/icons/icon-192.png`
 
 ---
 
 ### ⚡ Quick Wins — Fix in One Sitting
 
-- [ ] `src/views/TeamView.tsx` line ~2 — missing `useState` and `useEffect` imports → add `import { useState, useEffect } from 'preact/hooks'`
-- [ ] `src/views/SprintView.tsx` line ~2 — missing `useState` and `useEffect` imports → add `import { useState, useEffect } from 'preact/hooks'`
-- [ ] `package.json` `dependencies` — `"vite": "^6.2.0"` duplicate entry → remove `vite` from `dependencies`; keep only in `devDependencies`
-- [ ] `package.json` `dependencies` — `"vite-plugin-pwa": "^0.21.1"` not installed and not used → remove entry; re-add in Phase 2 when properly configured
-- [ ] `index.html` `<head>` — missing iOS PWA title meta → add `<meta name="apple-mobile-web-app-title" content="TrackerPro" />`
-- [ ] `src/services/seeder.ts` near the end — `localStorage.setItem('isLoggedIn', 'true')` present but `localStorage.setItem('hasSeenLanding', 'true')` missing → add `localStorage.setItem('hasSeenLanding', 'true')` on the line below
+- [x] `src/views/TeamView.tsx` line ~2 — missing `useState` and `useEffect` imports → add `import { useState, useEffect } from 'preact/hooks'`
+- [x] `src/views/SprintView.tsx` line ~2 — missing `useState` and `useEffect` imports → add `import { useState, useEffect } from 'preact/hooks'`
+- [x] `package.json` `dependencies` — `"vite": "^6.2.0"` duplicate entry → remove `vite` from `dependencies`; keep only in `devDependencies`
+- [x] `package.json` `dependencies` — `"vite-plugin-pwa": "^0.21.1"` not installed and not used → remove entry; re-add in Phase 2 when properly configured
+- [x] `index.html` `<head>` — missing iOS PWA title meta → add `<meta name="apple-mobile-web-app-title" content="TrackerPro" />`
+- [x] `src/services/seeder.ts` near the end — `localStorage.setItem('isLoggedIn', 'true')` present but `localStorage.setItem('hasSeenLanding', 'true')` missing → add `localStorage.setItem('hasSeenLanding', 'true')` on the line below
 
 ---
 
@@ -453,10 +453,10 @@ These have no single completion point — revisit every sprint.
 
 | Phase | Total Tasks | Done | Remaining |
 |---|---|---|---|
-| Phase 0 — Stop the Bleeding | 51 | 0 | 51 |
+| Phase 0 — Stop the Bleeding | 51 | 51 | 0 |
 | Phase 1 — Core Product Promises | 38 | 0 | 38 |
 | Phase 2 — Quality & Reliability | 41 | 0 | 41 |
 | Phase 3 — Feature Expansion | 22 | 0 | 22 |
-| **Total** | **152** | **0** | **152** |
+| **Total** | **152** | **51** | **101** |
 
 > Update the "Done" column as tasks are completed. Each `[x]` checkbox in a phase counts as one Done task.

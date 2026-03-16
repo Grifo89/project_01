@@ -1,15 +1,15 @@
 import { useState } from 'preact/hooks';
-import { Priority, User } from '../services/db';
+import { Priority, ProjectMember } from '../services/db';
 import { User as UserIcon, Calendar, Tag, AlertCircle, ChevronDown, X } from 'lucide-preact';
 import { Avatar } from './Avatar';
 
 interface TaskFormProps {
-  users?: User[];
-  onSubmit: (data: { 
-    title: string; 
-    description: string; 
-    tag: string; 
-    tagVariant: string; 
+  users?: ProjectMember[];
+  onSubmit: (data: {
+    title: string;
+    description: string;
+    tag: string;
+    tagVariant: string;
     dueDate: string;
     priority: Priority;
     assigneeIds?: string[];
@@ -33,11 +33,8 @@ export const TaskForm = ({ users = [], onSubmit, onCancel, initialData }: TaskFo
   const [tagVariant, setTagVariant] = useState(initialData?.tagVariant || 'primary');
   const [dueDate, setDueDate] = useState(initialData?.dueDate || '');
   const [priority, setPriority] = useState<Priority>(initialData?.priority || 'medium');
-  const [assigneeIds, setAssigneeIds] = useState<string[]>(() => {
-    if (initialData?.assigneeIds) return initialData.assigneeIds;
-    const myId = localStorage.getItem('myUserId');
-    return myId ? [myId] : [];
-  });
+  // Phase 1 will default to the signed-in user's authUid; for now tasks start unassigned
+  const [assigneeIds, setAssigneeIds] = useState<string[]>(initialData?.assigneeIds || []);
 
   const handleSubmit = (e: Event) => {
     e.preventDefault();
@@ -45,8 +42,8 @@ export const TaskForm = ({ users = [], onSubmit, onCancel, initialData }: TaskFo
     onSubmit({ title, description, tag, tagVariant, dueDate, priority, assigneeIds });
   };
 
-  const toggleAssignee = (uid: string) => {
-    setAssigneeIds(prev => prev.includes(uid) ? prev.filter(id => id !== uid) : [...prev, uid]);
+  const toggleAssignee = (authUid: string) => {
+    setAssigneeIds(prev => prev.includes(authUid) ? prev.filter(id => id !== authUid) : [...prev, authUid]);
   };
 
   const variants = [
@@ -71,20 +68,22 @@ export const TaskForm = ({ users = [], onSubmit, onCancel, initialData }: TaskFo
         <textarea value={description} onInput={(e) => setDescription((e.target as HTMLTextAreaElement).value)} placeholder="Add more details..." className="w-full px-5 py-4 bg-app-background border border-app-border rounded-2xl text-app-text-primary outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all min-h-[100px] resize-none" />
       </div>
 
-      <div className="space-y-3">
-        <label className="text-[10px] font-bold text-app-text-secondary uppercase tracking-[0.2em] flex items-center gap-2">
-          <UserIcon size={12} /> Assignees
-        </label>
-        <div className="flex flex-wrap gap-2">
-          {users.map(u => (
-            <button key={u.id} type="button" onClick={() => toggleAssignee(u.id)} className={`flex items-center gap-2 p-1.5 pr-3 rounded-full border transition-all ${assigneeIds.includes(u.id) ? 'bg-primary/10 border-primary text-primary' : 'bg-app-background border-app-border text-app-text-secondary hover:border-primary/50'}`}>
-              <Avatar initials={u.initials} src={u.avatarUrl} size="xs" />
-              <span className="text-xs font-bold">{u.name}</span>
-              {assigneeIds.includes(u.id) && <X size={12} />}
-            </button>
-          ))}
+      {users.length > 0 && (
+        <div className="space-y-3">
+          <label className="text-[10px] font-bold text-app-text-secondary uppercase tracking-[0.2em] flex items-center gap-2">
+            <UserIcon size={12} /> Assignees
+          </label>
+          <div className="flex flex-wrap gap-2">
+            {users.map(u => (
+              <button key={u.authUid} type="button" onClick={() => toggleAssignee(u.authUid)} className={`flex items-center gap-2 p-1.5 pr-3 rounded-full border transition-all ${assigneeIds.includes(u.authUid) ? 'bg-primary/10 border-primary text-primary' : 'bg-app-background border-app-border text-app-text-secondary hover:border-primary/50'}`}>
+                <Avatar displayName={u.displayName} photoUrl={u.photoUrl ?? undefined} size="xs" />
+                <span className="text-xs font-bold">{u.displayName}</span>
+                {assigneeIds.includes(u.authUid) && <X size={12} />}
+              </button>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="space-y-2">

@@ -12,9 +12,11 @@ import { ProfileSettingsView } from './views/ProfileSettingsView';
 import { LoginView } from './views/LoginView';
 import { LandingView } from './views/LandingView';
 import { StorybookView } from './views/StorybookView';
-import { db, Project, User } from './services/db';
+import { db, Project } from './services/db';
 import { Modal } from './components/Modal';
 import { ProjectForm } from './components/ProjectForm';
+
+const slugify = (name: string) => name.toLowerCase().replace(/\s+/g, '_');
 
 export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(() => localStorage.getItem('isLoggedIn') === 'true');
@@ -24,7 +26,6 @@ export default function App() {
   const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
   const [projects, setProjects] = useState<Project[]>([]);
   const [currentProjectId, setCurrentProjectId] = useState<string | null>(null);
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [isOnline, setIsOnline] = useState(navigator.onLine);
@@ -32,10 +33,8 @@ export default function App() {
   useEffect(() => {
     const handleOnline = () => setIsOnline(true);
     const handleOffline = () => setIsOnline(false);
-
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
-
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
@@ -48,31 +47,13 @@ export default function App() {
     return projectsData;
   };
 
-  const refreshUser = async () => {
-    const users = await db.getUsers();
-    let myId = localStorage.getItem('myUserId');
-    let me = users.find(u => u.id === myId);
-    
-    if (!me && myId === 'me') {
-      me = users.find(u => u.initials === 'ME');
-      if (me) localStorage.setItem('myUserId', me.id);
-    }
-
-    if (!me && users.length > 0) {
-      me = users[0];
-      localStorage.setItem('myUserId', me.id);
-    }
-    setCurrentUser(me || null);
-  };
-
   useEffect(() => {
     const initDb = async () => {
       try {
         await db.init();
         setIsDbReady(true);
         const projectsData = await refreshProjects();
-        await refreshUser();
-        
+
         // Handle initial routing or project selection
         const path = window.location.pathname;
         const projectMatch = path.match(/\/project\/([^/]+)/);
@@ -81,14 +62,11 @@ export default function App() {
           if (project) {
             setCurrentProjectId(project.id);
           } else {
-            // Try by ID if name fails
-            const allProj = await db.getProjects();
-            const byId = allProj.find(p => p.id === projectMatch[1]);
+            const byId = projectsData.find(p => p.id === projectMatch[1]);
             if (byId) setCurrentProjectId(byId.id);
           }
         } else if (projectsData.length > 0) {
           setCurrentProjectId(projectsData[0].id);
-          // Redirect to first project's dashboard if at root and logged in
           if (isLoggedIn && (path === '/' || path === '')) {
             route(`/project/${slugify(projectsData[0].name)}/dashboard`);
           }
@@ -100,7 +78,6 @@ export default function App() {
     };
     initDb();
 
-    // Listen for route changes
     const handleRouteChange = async (e: any) => {
       const path = e.url || window.location.pathname;
       const projectMatch = path.match(/\/project\/([^/]+)/);
@@ -111,13 +88,9 @@ export default function App() {
         }
       }
     };
-
     window.addEventListener('popstate', handleRouteChange);
-    
-    const handleProfileUpdate = () => refreshUser();
-    window.addEventListener('profileUpdated', handleProfileUpdate);
+
     return () => {
-      window.removeEventListener('profileUpdated', handleProfileUpdate);
       window.removeEventListener('popstate', handleRouteChange);
     };
   }, []);
@@ -148,8 +121,6 @@ export default function App() {
   }, [isDark]);
 
   const toggleTheme = () => setIsDark(!isDark);
-
-  const slugify = (name: string) => name.toLowerCase().replace(/\s+/g, '_');
 
   const handleCreateProject = async (data: { name: string; description: string; color: string; startDate: string; endDate: string }) => {
     const id = await db.addProject(data);
@@ -182,9 +153,7 @@ export default function App() {
   const handleProjectChange = (id: string) => {
     const project = projects.find(p => p.id === id);
     if (!project) return;
-    
     setCurrentProjectId(id);
-    // Maintain the current view type when switching projects
     const path = window.location.pathname;
     const viewMatch = path.match(/\/project\/[^/]+\/([^/]+)/);
     const view = viewMatch ? viewMatch[1] : 'dashboard';
@@ -207,7 +176,7 @@ export default function App() {
 
   return (
     <div className="flex min-h-screen bg-app-background text-app-text-primary font-sans pb-16 lg:pb-0">
-      <Sidebar 
+      <Sidebar
         onCreateProject={() => setIsProjectModalOpen(true)}
         currentProject={currentProject}
         projects={projects}
@@ -215,25 +184,23 @@ export default function App() {
         onDeleteProject={handleDeleteProject}
         isCollapsed={isSidebarCollapsed}
         onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-        currentUser={currentUser}
       />
-      
+
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        <Navbar 
-          onToggleTheme={toggleTheme} 
-          isDark={isDark} 
+        <Navbar
+          onToggleTheme={toggleTheme}
+          isDark={isDark}
           currentProject={currentProject}
           searchQuery={searchQuery}
           onSearchChange={setSearchQuery}
-          currentUser={currentUser}
         />
-        
+
         {!isOnline && (
           <div className="bg-amber-500 text-white text-center py-1 text-xs font-bold animate-pulse">
             You are currently working offline. Changes will be saved locally.
           </div>
         )}
-        
+
         <main className="flex-1 overflow-hidden flex flex-col">
           <Router>
             <Route path="/project/:name/dashboard" component={DashboardView} currentProject={currentProject} />
@@ -241,31 +208,30 @@ export default function App() {
             <Route path="/project/:name/calendar" component={CalendarView} currentProject={currentProject} />
             <Route path="/project/:name/sprints" component={SprintView} currentProject={currentProject} />
             <Route path="/project/:name/backlog" component={BacklogView} currentProject={currentProject} />
-            <Route path="/project/:name/team" component={TeamView} />
+            <Route path="/project/:name/team" component={TeamView} currentProject={currentProject} />
             <Route path="/project/:name/settings" component={ProjectSettingsView} currentProject={currentProject} onUpdate={handleProjectUpdate} onDelete={handleDeleteProject} />
             <Route path="/project/:name/profile" component={ProfileSettingsView} />
             <Route path="/storybook" component={StorybookView} />
-            {/* Fallback */}
             <Route default component={DashboardView} currentProject={currentProject} />
           </Router>
         </main>
- 
+
         <div className="lg:hidden fixed bottom-0 left-0 right-0 z-50">
-          <BottomNav 
-            onCreateProject={() => setIsProjectModalOpen(true)} 
+          <BottomNav
+            onCreateProject={() => setIsProjectModalOpen(true)}
             currentProject={currentProject}
           />
         </div>
       </div>
 
-      <Modal 
-        isOpen={isProjectModalOpen} 
-        onClose={() => setIsProjectModalOpen(false)} 
+      <Modal
+        isOpen={isProjectModalOpen}
+        onClose={() => setIsProjectModalOpen(false)}
         title="Create New Project"
       >
-        <ProjectForm 
-          onSubmit={handleCreateProject} 
-          onCancel={() => setIsProjectModalOpen(false)} 
+        <ProjectForm
+          onSubmit={handleCreateProject}
+          onCancel={() => setIsProjectModalOpen(false)}
         />
       </Modal>
     </div>

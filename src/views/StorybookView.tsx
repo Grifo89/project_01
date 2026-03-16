@@ -40,22 +40,25 @@ export const StorybookView = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
           <div className="space-y-4">
             <h3 className="text-sm font-bold uppercase text-slate-400">Task Card</h3>
-            <TaskCard 
-              title="Refactor API Authentication" 
-              tag="High Priority" 
+            <TaskCard
+              title="Refactor API Authentication"
+              tag="High Priority"
               tagVariant="rose"
               dueDate="Oct 24"
-              assignees={[{ initials: 'JD' }, { initials: 'AS' }]}
+              assignees={[
+                { displayName: 'John Doe' },
+                { displayName: 'Alice Smith' },
+              ]}
             />
           </div>
           <div className="space-y-4">
             <h3 className="text-sm font-bold uppercase text-slate-400">Stat Card</h3>
-            <StatCard 
-              title="Completed Tasks" 
-              value="1,284" 
-              trend="+12%" 
-              icon={CheckCircle} 
-              iconVariant="primary" 
+            <StatCard
+              title="Completed Tasks"
+              value="1,284"
+              trend="+12%"
+              icon={CheckCircle}
+              iconVariant="primary"
             />
           </div>
         </div>
@@ -63,11 +66,17 @@ export const StorybookView = () => {
 
       <section className="mb-16">
         <h2 className="text-2xl font-bold mb-6 pb-2 border-b">Avatars</h2>
-        <div className="flex gap-4">
-          <Avatar initials="JD" />
-          <Avatar src="https://lh3.googleusercontent.com/aida-public/AB6AXuDVwrixIEjy8xnVNJmZ3fKFBXHRZvPTThWUuROg1OndIewT_AM5OuSSzkojQQ_Vodwt6lQj0mPLC3B7lpu10TrOI7OB_sD83S0Pro4yKzlXagxMgDvCnRFnuV7xhPwoWDNvS18EH_xq4zWgsf5bO_wZTX4g_DIMQI4I9__FQ3X_LD8oAeTa8QRD5Pp5MmwEBZ4E19Vsq7XiX861mLKzbEkau682zHq5nnTwbzFo5yZ2lD6OjPlSF0Usv-T5XCs4Pkr1DqVxYMMrVT2u" />
-          <Avatar initials="AS" size="lg" />
-          <Avatar initials="JS" size="sm" />
+        <div className="flex gap-4 items-center">
+          <Avatar displayName="John Doe" size="xs" />
+          <Avatar displayName="John Doe" size="sm" />
+          <Avatar displayName="John Doe" size="md" />
+          <Avatar displayName="Alice Smith" size="lg" />
+          <Avatar displayName="Jane Smith" size="xl" />
+          <Avatar
+            displayName="Photo User"
+            photoUrl="https://i.pravatar.cc/100?u=storybook"
+            size="md"
+          />
         </div>
       </section>
     </div>
